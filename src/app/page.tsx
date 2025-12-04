@@ -63,13 +63,6 @@ const DECK: Card[] = RANKS.flatMap((rank) =>
   })),
 );
 
-const suitAccent: Record<Suit, string> = {
-  "♠": "text-slate-200",
-  "♣": "text-emerald-200",
-  "♦": "text-rose-200",
-  "♥": "text-red-200",
-};
-
 function cardLabel(card: Card) {
   return `${card.rank}${card.suit}`;
 }
@@ -378,24 +371,13 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-1">
+          <div className="grid grid-cols-4 gap-1 sm:grid-cols-4 lg:grid-cols-1">
             {cardsBySuit.map(({ suit, cards }) => (
               <div
                 key={suit}
-                // className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-inner shadow-black/40"
+                // className="rounded-xl border border-white/10 bg-white/5 p-2 shadow-inner shadow-black/40"
               >
-                {/* <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-2xl ${suitAccent[suit]}`}>{suit}</span>
-                    <span className="text-sm font-semibold text-white">
-                      {SUIT_META[suit].name}
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-300">
-                    A to K
-                  </span>
-                </div> */}
-                <div className="grid grid-cols-1 gap-2 lg:grid-cols-13">
+                <div className="grid grid-cols-1 gap-1 lg:grid-cols-13">
                   {cards.map((card) => {
                     const isHand = hand.some((c) => c.id === card.id);
                     const isStarter = starter?.id === card.id;
@@ -471,14 +453,14 @@ export default function Home() {
 
               <div
                 ref={picksRef}
-                className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5"
+                className="mt-4 grid grid-cols-4 gap-1 sm:grid-cols-5"
               >
                 {Array.from({ length: 4 }).map((_, idx) => (
                   <button
                     key={`hand-${idx}`}
                     type="button"
                     onClick={() => hand[idx] && handleToggleCard(hand[idx]!)}
-                    className="rounded-xl border border-emerald-300/20 bg-emerald-500/10 px-3 py-4 text-center text-sm text-emerald-100 shadow-inner shadow-emerald-900/50 transition hover:border-emerald-200/60 hover:shadow-lg hover:shadow-emerald-900/40 disabled:cursor-default"
+                    className="rounded-xl border border-emerald-300/20 bg-emerald-500/10 px-2 py-2 text-center text-sm text-emerald-100 shadow-inner shadow-emerald-900/50 transition hover:border-emerald-200/60 hover:shadow-lg hover:shadow-emerald-900/40 disabled:cursor-default"
                     disabled={!hand[idx]}
                   >
                     <div className="text-xs uppercase tracking-wide text-emerald-200">
