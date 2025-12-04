@@ -382,9 +382,9 @@ export default function Home() {
             {cardsBySuit.map(({ suit, cards }) => (
               <div
                 key={suit}
-                // className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-inner shadow-black/40"
+                className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-inner shadow-black/40"
               >
-                {/* <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`text-2xl ${suitAccent[suit]}`}>{suit}</span>
                     <span className="text-sm font-semibold text-white">
@@ -394,7 +394,7 @@ export default function Home() {
                   <span className="text-xs text-slate-300">
                     A to K
                   </span>
-                </div> */}
+                </div>
                 <div className="grid grid-cols-1 gap-2 lg:grid-cols-13">
                   {cards.map((card) => {
                     const isHand = hand.some((c) => c.id === card.id);
