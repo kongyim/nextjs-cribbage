@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Suit = "♠" | "♥" | "♦" | "♣";
+type FaceStyle = "simple" | "original";
 
 type Card = {
   rank: string;
@@ -41,6 +43,16 @@ const RANKS: Array<{ label: string; value: number; order: number }> = [
 
 const SUITS: Suit[] = ["♠", "♥", "♦", "♣"];
 
+const SUIT_META: Record<
+  Suit,
+  { name: string; slug: "spades" | "hearts" | "diamonds" | "clubs"; color: string }
+> = {
+  "♠": { name: "Spades", slug: "spades", color: "text-slate-200" },
+  "♥": { name: "Hearts", slug: "hearts", color: "text-red-200" },
+  "♦": { name: "Diamonds", slug: "diamonds", color: "text-rose-200" },
+  "♣": { name: "Clubs", slug: "clubs", color: "text-emerald-200" },
+};
+
 const DECK: Card[] = RANKS.flatMap((rank) =>
   SUITS.map((suit) => ({
     rank: rank.label,
@@ -51,13 +63,6 @@ const DECK: Card[] = RANKS.flatMap((rank) =>
   })),
 );
 
-const suitStyles: Record<Suit, string> = {
-  "♠": "bg-slate-900/80 border-slate-700 text-slate-50",
-  "♣": "bg-emerald-900/70 border-emerald-700 text-emerald-50",
-  "♦": "bg-rose-900/70 border-rose-700 text-rose-50",
-  "♥": "bg-red-900/70 border-red-700 text-red-50",
-};
-
 const suitAccent: Record<Suit, string> = {
   "♠": "text-slate-200",
   "♣": "text-emerald-200",
@@ -67,6 +72,30 @@ const suitAccent: Record<Suit, string> = {
 
 function cardLabel(card: Card) {
   return `${card.rank}${card.suit}`;
+}
+
+const rankSlug: Record<string, string> = {
+  A: "ace",
+  J: "jack",
+  Q: "queen",
+  K: "king",
+  "10": "10",
+  "9": "9",
+  "8": "8",
+  "7": "7",
+  "6": "6",
+  "5": "5",
+  "4": "4",
+  "3": "3",
+  "2": "2",
+};
+
+function cardImagePath(card: Card, faceStyle: FaceStyle) {
+  const suitSlug = SUIT_META[card.suit].slug;
+  const baseRank = rankSlug[card.rank] ?? card.rank.toLowerCase();
+  const needsAlt = ["J", "Q", "K"].includes(card.rank);
+  const suffix = needsAlt && faceStyle === "original" ? "2" : "";
+  return `/cards/${baseRank}_of_${suitSlug}${suffix}.svg`;
 }
 
 function generateCombos<T>(items: T[]): T[][] {
@@ -239,16 +268,36 @@ export default function Home() {
   const [hand, setHand] = useState<Card[]>([]);
   const [starter, setStarter] = useState<Card | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [faceStyle, setFaceStyle] = useState<FaceStyle>("original");
+  const picksRef = useRef<HTMLDivElement | null>(null);
+  const hasAutoScrolled = useRef(false);
 
   const selectedIds = useMemo(
     () => new Set([starter, ...hand].filter(Boolean).map((c) => c!.id)),
     [hand, starter],
   );
 
+  const cardsBySuit = useMemo(
+    () => SUITS.map((suit) => ({ suit, cards: DECK.filter((c) => c.suit === suit) })),
+    [],
+  );
+
   const breakdown = useMemo(
     () => (hand.length === 4 && starter ? scoreHand(hand, starter) : null),
     [hand, starter],
   );
+
+  const slotsFilled = hand.length === 4 && starter;
+
+  useEffect(() => {
+    if (slotsFilled && !hasAutoScrolled.current) {
+      picksRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      hasAutoScrolled.current = true;
+    }
+    if (!slotsFilled) {
+      hasAutoScrolled.current = false;
+    }
+  }, [slotsFilled]);
 
   const handleToggleCard = (card: Card) => {
     setNote(null);
@@ -278,8 +327,6 @@ export default function Home() {
     setNote(null);
   };
 
-  const slotsFilled = hand.length === 4 && starter;
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-50">
       <div className="mx-auto max-w-6xl px-6 py-10">
@@ -304,6 +351,101 @@ export default function Home() {
           </button>
         </header>
 
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-slate-950/50 backdrop-blur">
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-white">Full deck</h2>
+              <p className="text-xs text-slate-300">
+                {selectedIds.size}/5 selected
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-slate-300">Face style</span>
+              <div className="flex overflow-hidden rounded-full border border-white/10 bg-white/10">
+                {(["simple", "original"] as FaceStyle[]).map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => setFaceStyle(style)}
+                    className={`px-3 py-1 font-semibold transition ${
+                      faceStyle === style
+                        ? "bg-white/20 text-white"
+                        : "text-slate-200 hover:bg-white/10"
+                    }`}
+                  >
+                    {style === "simple" ? "Simple" : "Original"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-1">
+            {cardsBySuit.map(({ suit, cards }) => (
+              <div
+                key={suit}
+                // className="rounded-xl border border-white/10 bg-white/5 p-3 shadow-inner shadow-black/40"
+              >
+                {/* <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-2xl ${suitAccent[suit]}`}>{suit}</span>
+                    <span className="text-sm font-semibold text-white">
+                      {SUIT_META[suit].name}
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-300">
+                    A to K
+                  </span>
+                </div> */}
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-13">
+                  {cards.map((card) => {
+                    const isHand = hand.some((c) => c.id === card.id);
+                    const isStarter = starter?.id === card.id;
+                    const selected = isHand || isStarter;
+                    return (
+                      <button
+                        key={card.id}
+                        onClick={() => handleToggleCard(card)}
+                        className={`group relative overflow-hidden rounded-xl border bg-white/90 p-1 text-left shadow-sm shadow-black/25 transition duration-150 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40 ${
+                          selected
+                            ? "border-lime-200 ring-2 ring-lime-300"
+                            : "border-slate-200/70"
+                        }`}
+                      >
+                        <div className="relative aspect-[63/88] w-full overflow-hidden rounded-lg bg-gradient-to-br from-white to-slate-50">
+                          <Image
+                            src={cardImagePath(card, faceStyle)}
+                            alt={cardLabel(card)}
+                            fill
+                            sizes="(min-width:1024px) 90px, (min-width:640px) 16vw, 22vw"
+                            className="object-contain drop-shadow-sm"
+                          />
+                        </div>
+                        <div className="pointer-events-none absolute inset-0 rounded-xl border border-white/50" />
+                        <div className="absolute bottom-2 left-2 flex flex-wrap gap-1 text-[10px] font-semibold text-slate-800 drop-shadow">
+                          {isHand && (
+                            <span className="rounded-full bg-emerald-500/90 px-2 py-0.5 text-white shadow">
+                              Hand
+                            </span>
+                          )}
+                          {isStarter && (
+                            <span className="rounded-full bg-amber-400/90 px-2 py-0.5 text-amber-950 shadow">
+                              Starter
+                            </span>
+                          )}
+                          {!selected && (
+                            <span className="rounded-full bg-slate-100/90 px-2 py-0.5 text-slate-700 shadow">
+                              Add
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <section className="mt-6 grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="space-y-4">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-slate-950/50 backdrop-blur">
@@ -327,85 +469,75 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <div
+                ref={picksRef}
+                className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5"
+              >
                 {Array.from({ length: 4 }).map((_, idx) => (
-                  <div
+                  <button
                     key={`hand-${idx}`}
-                    className="rounded-xl border border-emerald-300/20 bg-emerald-500/10 px-3 py-4 text-center text-sm text-emerald-100 shadow-inner shadow-emerald-900/50"
+                    type="button"
+                    onClick={() => hand[idx] && handleToggleCard(hand[idx]!)}
+                    className="rounded-xl border border-emerald-300/20 bg-emerald-500/10 px-3 py-4 text-center text-sm text-emerald-100 shadow-inner shadow-emerald-900/50 transition hover:border-emerald-200/60 hover:shadow-lg hover:shadow-emerald-900/40 disabled:cursor-default"
+                    disabled={!hand[idx]}
                   >
                     <div className="text-xs uppercase tracking-wide text-emerald-200">
                       Hand {idx + 1}
                     </div>
-                    <div className="mt-2 text-lg font-semibold">
-                      {hand[idx] ? cardLabel(hand[idx]) : "—"}
+                    <div className="mt-2">
+                      <div className="relative aspect-[63/88] w-full overflow-hidden rounded-lg border border-emerald-200/40 bg-white/90 shadow">
+                        {hand[idx] ? (
+                          <Image
+                            src={cardImagePath(hand[idx], faceStyle)}
+                            alt={cardLabel(hand[idx])}
+                            fill
+                            sizes="120px"
+                            className="object-contain p-1"
+                            priority
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-lg font-semibold text-emerald-200">
+                            —
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
-                <div className="rounded-xl border border-amber-300/30 bg-amber-500/10 px-3 py-4 text-center text-sm text-amber-100 shadow-inner shadow-amber-900/40">
+                <button
+                  type="button"
+                  onClick={() => starter && handleToggleCard(starter)}
+                  className="rounded-xl border border-amber-300/30 bg-amber-500/10 px-3 py-4 text-center text-sm text-amber-100 shadow-inner shadow-amber-900/40 transition hover:border-amber-200/60 hover:shadow-lg hover:shadow-amber-900/30 disabled:cursor-default"
+                  disabled={!starter}
+                >
                   <div className="text-xs uppercase tracking-wide text-amber-200">
                     Starter
                   </div>
-                  <div className="mt-2 text-lg font-semibold">
-                    {starter ? cardLabel(starter) : "—"}
+                  <div className="mt-2">
+                    <div className="relative aspect-[63/88] w-full overflow-hidden rounded-lg border border-amber-200/40 bg-white/90 shadow">
+                      {starter ? (
+                        <Image
+                          src={cardImagePath(starter, faceStyle)}
+                          alt={cardLabel(starter)}
+                          fill
+                          sizes="120px"
+                          className="object-contain p-1"
+                          priority
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-lg font-semibold text-amber-200">
+                          —
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </button>
               </div>
               {note && (
                 <p className="mt-3 text-sm text-amber-200">
                   {note}
                 </p>
               )}
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-slate-950/50 backdrop-blur">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-white">Full deck</h2>
-                <p className="text-xs text-slate-300">
-                  {selectedIds.size}/5 selected
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                {DECK.map((card) => {
-                  const isHand = hand.some((c) => c.id === card.id);
-                  const isStarter = starter?.id === card.id;
-                  const selected = isHand || isStarter;
-                  return (
-                    <button
-                      key={card.id}
-                      onClick={() => handleToggleCard(card)}
-                      className={`group relative overflow-hidden rounded-xl border px-3 py-4 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/40 ${suitStyles[card.suit]} ${
-                        selected ? "ring-2 ring-white/70" : "border-white/10"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="text-lg font-bold leading-none">
-                          {card.rank}
-                        </div>
-                        <div className={`text-sm font-semibold ${suitAccent[card.suit]}`}>
-                          {card.suit}
-                        </div>
-                      </div>
-                      <div className="mt-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-white/80">
-                        {isHand && (
-                          <span className="rounded-full bg-emerald-400/20 px-2 py-1 text-emerald-50">
-                            Hand
-                          </span>
-                        )}
-                        {isStarter && (
-                          <span className="rounded-full bg-amber-400/30 px-2 py-1 text-amber-50">
-                            Starter
-                          </span>
-                        )}
-                        {!selected && (
-                          <span className="rounded-full border border-white/20 px-2 py-1">
-                            Add
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           </div>
 
