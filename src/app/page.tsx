@@ -67,6 +67,13 @@ const SUIT_META: Record<
   "♣": { name: "Clubs", slug: "clubs", color: "text-emerald-200" },
 };
 
+const SUIT_ORDER: Record<Suit, number> = {
+  "♠": 0,
+  "♥": 1,
+  "♦": 2,
+  "♣": 3,
+};
+
 const DECK: Card[] = RANKS.flatMap((rank) =>
   SUITS.map((suit) => ({
     rank: rank.label,
@@ -370,6 +377,22 @@ function evaluateDiscards(
   return results.sort((a, b) => b.expectedValue - a.expectedValue).slice(0, 3);
 }
 
+function sortCards(cards: Card[]) {
+  return [...cards].sort((a, b) => {
+    if (a.order !== b.order) {
+      return a.order - b.order;
+    }
+    return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
+  });
+}
+
+const ACTIVE_TAB_STORAGE_KEY = "cribbage-active-tab";
+const DEALER_STORAGE_KEY = "cribbage-is-dealer";
+const INCLUDE_CRIB_STORAGE_KEY = "cribbage-include-crib";
+const TEST_DEALER_STORAGE_KEY = "cribbage-test-is-dealer";
+const TEST_INCLUDE_CRIB_STORAGE_KEY = "cribbage-test-include-crib";
+const FACE_STYLE_STORAGE_KEY = "cribbage-face-style";
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"count" | "discard" | "test">("count");
   const [hand, setHand] = useState<Card[]>([]);
@@ -540,11 +563,68 @@ export default function Home() {
   }, []);
 
   const refreshTestHand = useCallback(() => {
-    setTestCards(randomSix());
+    setTestCards(sortCards(randomSix()));
     setTestDiscards([]);
     setTestNote(null);
     setShowBestSolution(false);
   }, [randomSix]);
+
+  useEffect(() => {
+    const storedTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    if (storedTab === "count" || storedTab === "discard" || storedTab === "test") {
+      setActiveTab(storedTab);
+    }
+    const storedDealer = localStorage.getItem(DEALER_STORAGE_KEY);
+    if (storedDealer === "true" || storedDealer === "false") {
+      setIsDealer(storedDealer === "true");
+    }
+    const storedIncludeCrib = localStorage.getItem(INCLUDE_CRIB_STORAGE_KEY);
+    if (storedIncludeCrib === "true" || storedIncludeCrib === "false") {
+      setIncludeCrib(storedIncludeCrib === "true");
+    }
+    const storedTestDealer = localStorage.getItem(TEST_DEALER_STORAGE_KEY);
+    if (storedTestDealer === "true" || storedTestDealer === "false") {
+      setTestIsDealer(storedTestDealer === "true");
+    }
+    const storedTestIncludeCrib = localStorage.getItem(TEST_INCLUDE_CRIB_STORAGE_KEY);
+    if (storedTestIncludeCrib === "true" || storedTestIncludeCrib === "false") {
+      setTestIncludeCrib(storedTestIncludeCrib === "true");
+    }
+    const storedFaceStyle = localStorage.getItem(FACE_STYLE_STORAGE_KEY);
+    if (storedFaceStyle === "simple" || storedFaceStyle === "original") {
+      setFaceStyle(storedFaceStyle);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem(DEALER_STORAGE_KEY, String(isDealer));
+  }, [isDealer]);
+
+  useEffect(() => {
+    localStorage.setItem(INCLUDE_CRIB_STORAGE_KEY, String(includeCrib));
+  }, [includeCrib]);
+
+  useEffect(() => {
+    localStorage.setItem(TEST_DEALER_STORAGE_KEY, String(testIsDealer));
+  }, [testIsDealer]);
+
+  useEffect(() => {
+    localStorage.setItem(TEST_INCLUDE_CRIB_STORAGE_KEY, String(testIncludeCrib));
+  }, [testIncludeCrib]);
+
+  useEffect(() => {
+    localStorage.setItem(FACE_STYLE_STORAGE_KEY, faceStyle);
+  }, [faceStyle]);
+
+  useEffect(() => {
+    if (activeTab === "test" && testCards.length === 0) {
+      refreshTestHand();
+    }
+  }, [activeTab, refreshTestHand, testCards.length]);
 
   const faceStyleToggle = (
     <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1255,7 +1335,7 @@ export default function Home() {
                         Keep
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {userTestChoice.keep.map((card) => (
+                        {sortCards(userTestChoice.keep).map((card) => (
                           <span
                             key={`test-keep-${card.id}`}
                             className="inline-flex items-center gap-1 rounded-full border border-emerald-200/40 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-50"
@@ -1268,7 +1348,7 @@ export default function Home() {
                         Discard
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {userTestChoice.discards.map((card) => (
+                        {sortCards(userTestChoice.discards).map((card) => (
                           <span
                             key={`test-discard-${card.id}`}
                             className="inline-flex items-center gap-1 rounded-full border border-amber-200/50 bg-amber-500/10 px-3 py-1 text-sm font-semibold text-amber-50"
@@ -1367,7 +1447,7 @@ export default function Home() {
                         Keep
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {bestTestSuggestion.keep.map((card) => (
+                        {sortCards(bestTestSuggestion.keep).map((card) => (
                           <span
                             key={`best-keep-${card.id}`}
                             className="inline-flex items-center gap-1 rounded-full border border-emerald-200/40 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-50"
@@ -1380,7 +1460,7 @@ export default function Home() {
                         Discard
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {bestTestSuggestion.discards.map((card) => (
+                        {sortCards(bestTestSuggestion.discards).map((card) => (
                           <span
                             key={`best-discard-${card.id}`}
                             className="inline-flex items-center gap-1 rounded-full border border-amber-200/50 bg-amber-500/10 px-3 py-1 text-sm font-semibold text-amber-50"
