@@ -26,6 +26,7 @@ type Props = {
   onDealerChange: (value: boolean) => void;
   onIncludeCribChange: (value: boolean) => void;
   discardSuggestions: DiscardSuggestion[];
+  discardLoading: boolean;
 };
 
 export function DiscardTab({
@@ -41,6 +42,7 @@ export function DiscardTab({
   onDealerChange,
   onIncludeCribChange,
   discardSuggestions,
+  discardLoading,
 }: Props) {
   return (
     <>
@@ -204,104 +206,113 @@ export function DiscardTab({
           )}
           {discardPick.length === 6 && (
             <div className="mt-4 space-y-4">
-              {discardSuggestions.map((suggestion, idx) => (
-                <div
-                  key={suggestion.keep.map((c) => c.id).join("-")}
-                  className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/30"
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="rounded-full bg-sky-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100">
-                        #{idx + 1}
-                      </span>
-                      <div>
-                        <p className="text-sm text-slate-200">
-                          Keep the four below, discard the two to the crib.
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          Best starters highlight spikes you can hope to cut.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs uppercase tracking-wide text-lime-200">
-                        Expected value
-                      </div>
-                      <div className="text-3xl font-black text-lime-100">
-                        {suggestion.expectedValue.toFixed(2)}
-                      </div>
-                      {includeCrib && (
-                        <div className="mt-1 text-[11px] text-slate-300">
-                          Hand {suggestion.handAverage.toFixed(2)} / Crib{" "}
-                          {suggestion.cribAverage.toFixed(2)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr,0.8fr]">
-                    <div className="rounded-xl border border-white/5 bg-white/5 p-3">
-                      <div className="text-xs uppercase tracking-wide text-emerald-200">
-                        Keep
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {suggestion.keep.map((card) => (
-                          <span
-                            key={`keep-${card.id}`}
-                            className="inline-flex items-center gap-1 rounded-full border border-emerald-200/40 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-50"
-                          >
-                            {cardLabel(card)}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="mt-3 text-xs uppercase tracking-wide text-amber-200">
-                        Discard to crib
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {suggestion.discards.map((card) => (
-                          <span
-                            key={`discard-${card.id}`}
-                            className="inline-flex items-center gap-1 rounded-full border border-amber-200/50 bg-amber-500/10 px-3 py-1 text-sm font-semibold text-amber-50"
-                          >
-                            {cardLabel(card)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm text-slate-100">
-                      <div className="flex items-center justify-between">
-                        <span>Hand average</span>
-                        <span className="font-semibold text-lime-100">
-                          {suggestion.handAverage.toFixed(2)} pts
-                        </span>
-                      </div>
-                      {includeCrib && (
-                        <div className="mt-2 flex items-center justify-between">
-                          <span>Crib average</span>
-                          <span className="font-semibold text-lime-100">
-                            {suggestion.cribAverage.toFixed(2)} pts
-                          </span>
-                        </div>
-                      )}
-                      <div className="mt-2 text-xs text-slate-300">
-                        Best starters for this keep:
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {suggestion.bestStarters.map(({ card, score }) => (
-                          <span
-                            key={`starter-${card.id}`}
-                            className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-50"
-                          >
-                            <span>{cardLabel(card)}</span>
-                            <span className="text-slate-200">{score} pts</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+              {discardLoading && (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 animate-pulse rounded-full bg-lime-300" />
+                    Calculating best discard lines...
                   </div>
                 </div>
-              ))}
+              )}
+              {!discardLoading &&
+                discardSuggestions.map((suggestion, idx) => (
+                  <div
+                    key={suggestion.keep.map((c) => c.id).join("-")}
+                    className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/30"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="rounded-full bg-sky-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100">
+                          #{idx + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm text-slate-200">
+                            Keep the four below, discard the two to the crib.
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            Best starters highlight spikes you can hope to cut.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs uppercase tracking-wide text-lime-200">
+                          Expected value
+                        </div>
+                        <div className="text-3xl font-black text-lime-100">
+                          {suggestion.expectedValue.toFixed(2)}
+                        </div>
+                        {includeCrib && (
+                          <div className="mt-1 text-[11px] text-slate-300">
+                            Hand {suggestion.handAverage.toFixed(2)} / Crib{" "}
+                            {suggestion.cribAverage.toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr,0.8fr]">
+                      <div className="rounded-xl border border-white/5 bg-white/5 p-3">
+                        <div className="text-xs uppercase tracking-wide text-emerald-200">
+                          Keep
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {suggestion.keep.map((card) => (
+                            <span
+                              key={`keep-${card.id}`}
+                              className="inline-flex items-center gap-1 rounded-full border border-emerald-200/40 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-50"
+                            >
+                              {cardLabel(card)}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-3 text-xs uppercase tracking-wide text-amber-200">
+                          Discard to crib
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {suggestion.discards.map((card) => (
+                            <span
+                              key={`discard-${card.id}`}
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-200/50 bg-amber-500/10 px-3 py-1 text-sm font-semibold text-amber-50"
+                            >
+                              {cardLabel(card)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm text-slate-100">
+                        <div className="flex items-center justify-between">
+                          <span>Hand average</span>
+                          <span className="font-semibold text-lime-100">
+                            {suggestion.handAverage.toFixed(2)} pts
+                          </span>
+                        </div>
+                        {includeCrib && (
+                          <div className="mt-2 flex items-center justify-between">
+                            <span>Crib average</span>
+                            <span className="font-semibold text-lime-100">
+                              {suggestion.cribAverage.toFixed(2)} pts
+                            </span>
+                          </div>
+                        )}
+                        <div className="mt-2 text-xs text-slate-300">
+                          Best starters for this keep:
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {suggestion.bestStarters.map(({ card, score }) => (
+                            <span
+                              key={`starter-${card.id}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-50"
+                            >
+                              <span>{cardLabel(card)}</span>
+                              <span className="text-slate-200">{score} pts</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
             </div>
           )}
         </div>

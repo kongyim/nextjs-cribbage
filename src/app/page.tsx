@@ -31,6 +31,8 @@ export default function Home() {
   const [note, setNote] = useState<string | null>(null);
   const [discardPick, setDiscardPick] = useState<Card[]>([]);
   const [discardNote, setDiscardNote] = useState<string | null>(null);
+  const [discardSuggestions, setDiscardSuggestions] = useState<DiscardSuggestion[]>([]);
+  const [discardLoading, setDiscardLoading] = useState(false);
   const [isDealer, setIsDealer] = useState(true);
   const [includeCrib, setIncludeCrib] = useState(true);
   const [testCards, setTestCards] = useState<Card[]>([]);
@@ -38,6 +40,9 @@ export default function Home() {
   const [testNote, setTestNote] = useState<string | null>(null);
   const [testIsDealer, setTestIsDealer] = useState(true);
   const [testIncludeCrib, setTestIncludeCrib] = useState(true);
+  const [bestTestSuggestion, setBestTestSuggestion] = useState<DiscardSuggestion | null>(null);
+  const [userTestChoice, setUserTestChoice] = useState<DiscardSuggestion | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
   const [showBestSolution, setShowBestSolution] = useState(false);
   const [faceStyle, setFaceStyle] = useState<FaceStyle>("original");
   const picksRef = useRef<HTMLDivElement | null>(null);
@@ -72,40 +77,6 @@ export default function Home() {
     () => (hand.length === 4 && starter ? scoreHand(hand, starter) : null),
     [hand, starter],
   );
-
-  const discardSuggestions = useMemo(
-    () => evaluateDiscards(discardPick, isDealer, includeCrib),
-    [discardPick, includeCrib, isDealer],
-  );
-
-  const bestTestSuggestion = useMemo(
-    () => (testCards.length === 6 ? evaluateDiscards(testCards, testIsDealer, testIncludeCrib)[0] : null),
-    [testCards, testIncludeCrib, testIsDealer],
-  );
-
-  const userTestChoice = useMemo(() => {
-    if (testCards.length !== 6 || testDiscards.length !== 2) return null;
-    const keep = testCards.filter((card) => !testDiscards.some((d) => d.id === card.id));
-    const starterPool = DECK.filter((card) => !testCards.some((picked) => picked.id === card.id));
-    const { average: handAverage, best } = averageHandScores(keep, starterPool);
-    const cribAverage = testIncludeCrib
-      ? expectedCribValue(testDiscards, starterPool, testIsDealer)
-      : 0;
-    const expectedValue = testIncludeCrib
-      ? testIsDealer
-        ? handAverage + cribAverage
-        : handAverage - cribAverage
-      : handAverage;
-
-    return {
-      keep,
-      discards: testDiscards,
-      handAverage,
-      cribAverage,
-      expectedValue,
-      bestStarters: best,
-    };
-  }, [testCards, testDiscards, testIncludeCrib, testIsDealer]);
 
   const slotsFilled = hand.length === 4 && !!starter;
 
@@ -264,6 +235,61 @@ export default function Home() {
   }, [faceStyle]);
 
   useEffect(() => {
+    if (discardPick.length !== 6) {
+      setDiscardSuggestions([]);
+      setDiscardLoading(false);
+      return;
+    }
+    setDiscardLoading(true);
+    const handle = setTimeout(() => {
+      setDiscardSuggestions(evaluateDiscards(discardPick, isDealer, includeCrib));
+      setDiscardLoading(false);
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [discardPick, includeCrib, isDealer]);
+
+  useEffect(() => {
+    if (testCards.length !== 6) {
+      setBestTestSuggestion(null);
+      setUserTestChoice(null);
+      setTestLoading(false);
+      return;
+    }
+    setTestLoading(true);
+    const handle = setTimeout(() => {
+      const best = evaluateDiscards(testCards, testIsDealer, testIncludeCrib)[0] ?? null;
+      setBestTestSuggestion(best);
+
+      if (testDiscards.length === 2) {
+        const keep = testCards.filter((card) => !testDiscards.some((d) => d.id === card.id));
+        const starterPool = DECK.filter((card) => !testCards.some((picked) => picked.id === card.id));
+        const { average: handAverage, best: bestStarters } = averageHandScores(keep, starterPool);
+        const cribAverage = testIncludeCrib
+          ? expectedCribValue(testDiscards, starterPool, testIsDealer)
+          : 0;
+        const expectedValue = testIncludeCrib
+          ? testIsDealer
+            ? handAverage + cribAverage
+            : handAverage - cribAverage
+          : handAverage;
+
+        setUserTestChoice({
+          keep,
+          discards: testDiscards,
+          handAverage,
+          cribAverage,
+          expectedValue,
+          bestStarters,
+        });
+      } else {
+        setUserTestChoice(null);
+      }
+      setTestLoading(false);
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [testCards, testDiscards, testIncludeCrib, testIsDealer]);
+
+  useEffect(() => {
     if (activeTab === "test" && testCards.length === 0) {
       refreshTestHand();
     }
@@ -365,6 +391,7 @@ export default function Home() {
             onDealerChange={setIsDealer}
             onIncludeCribChange={setIncludeCrib}
             discardSuggestions={discardSuggestions}
+            discardLoading={discardLoading}
           />
         )}
 
@@ -387,6 +414,7 @@ export default function Home() {
             onSetTestIncludeCrib={setTestIncludeCrib}
             onToggleShowBest={() => bestTestSuggestion && setShowBestSolution((prev) => !prev)}
             onSendToDiscard={sendTestToDiscard}
+            testLoading={testLoading}
           />
         )}
       </div>

@@ -29,6 +29,7 @@ type Props = {
   onSetTestIncludeCrib: (value: boolean) => void;
   onToggleShowBest: () => void;
   onSendToDiscard: () => void;
+  testLoading: boolean;
 };
 
 export function TestTab({
@@ -49,6 +50,7 @@ export function TestTab({
   onSetTestIncludeCrib,
   onToggleShowBest,
   onSendToDiscard,
+  testLoading,
 }: Props) {
   return (
     <>
@@ -186,6 +188,14 @@ export function TestTab({
               Select two cards to discard.
             </p>
           )}
+          {testLoading && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 animate-pulse rounded-full bg-lime-300" />
+                Calculating expected value...
+              </div>
+            </div>
+          )}
           {userTestChoice && (
             <div className="mt-4 grid gap-3 md:grid-cols-[1.1fr,0.9fr]">
               <div className="rounded-xl border border-white/5 bg-white/5 p-3">
@@ -284,6 +294,14 @@ export function TestTab({
             <p className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
               Best line is hidden. Select two discards, then tap “Show best”.
             </p>
+          )}
+          {testLoading && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 animate-pulse rounded-full bg-lime-300" />
+                Calculating best line...
+              </div>
+            </div>
           )}
           {bestTestSuggestion && showBestSolution && (
             <div className="mt-4 grid gap-3 md:grid-cols-[1.1fr,0.9fr]">
