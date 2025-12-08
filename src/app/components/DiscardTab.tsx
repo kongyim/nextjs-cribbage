@@ -29,6 +29,7 @@ type Props = {
   onIncludeCribChange: (value: boolean) => void;
   discardSuggestions: DiscardSuggestion[];
   discardLoading: boolean;
+  onStarterPick: (keep: Card[], starter: Card) => void;
 };
 
 export function DiscardTab({
@@ -45,6 +46,7 @@ export function DiscardTab({
   onIncludeCribChange,
   discardSuggestions,
   discardLoading,
+  onStarterPick,
 }: Props) {
   const summarizeStarterRanks = (cards: Card[]) => {
     const byRank = new Map<string, { order: number; suits: Set<string> }>();
@@ -70,6 +72,23 @@ export function DiscardTab({
         return { rank, suitString };
       })
       .map(({ rank, suitString }) => ({ rank, suits: suitString.split("") }));
+  };
+
+  const buildRankSegments = (cards: Card[]) => {
+    const segments = summarizeStarterRanks(cards).map(({ rank, suits }) => {
+      const suitOrderLookup = SUIT_ORDER as Record<string, number>;
+      const sortedSuits = [...suits].sort((a, b) => suitOrderLookup[a] - suitOrderLookup[b]);
+      const starterCard =
+        cards
+          .filter((c) => c.rank === rank)
+          .sort(
+            (a, b) =>
+              suitOrderLookup[a.suit] - suitOrderLookup[b.suit] ||
+              a.order - b.order,
+          )[0] ?? cards[0];
+      return { rank, suits: sortedSuits, starterCard };
+    });
+    return segments;
   };
 
   const renderStarterGroup = (cards: Card[]) => {
@@ -359,15 +378,31 @@ export function DiscardTab({
                           Best starters for this keep:
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {groupStarterScores(suggestion.bestStarters).map(({ cards, score }) => (
-                            <span
-                              key={`starter-group-${score}-${cards.map((c) => c.id).join("-")}`}
-                              className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-50"
-                            >
-                              {renderStarterGroup(cards)}
-                              <span className="text-slate-200">{score} pts</span>
-                            </span>
-                          ))}
+                          {groupStarterScores(suggestion.bestStarters).flatMap(({ cards, score }) =>
+                            buildRankSegments(cards).map(({ rank, suits, starterCard }) => (
+                              <button
+                                type="button"
+                                key={`starter-${score}-${rank}-${starterCard.id}`}
+                                onClick={() => starterCard && onStarterPick(suggestion.keep, starterCard)}
+                                className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-50 shadow hover:-translate-y-[1px] hover:border-sky-100 hover:bg-sky-400/25 hover:shadow-sky-500/30 transition"
+                              >
+                                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-1.5 py-0.5">
+                                  <span className="font-semibold">{rank}</span>
+                                  <span className="flex items-center gap-0.5 text-[11px]">
+                                    {suits.map((suit) => (
+                                      <span
+                                        key={`${rank}-${suit}`}
+                                        className="rounded bg-sky-400/40 px-1 py-[1px]"
+                                      >
+                                        {suit}
+                                      </span>
+                                    ))}
+                                  </span>
+                                </span>
+                                <span className="text-slate-200">{score} pts</span>
+                              </button>
+                            )),
+                          )}
                         </div>
                       </div>
                     </div>

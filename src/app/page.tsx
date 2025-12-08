@@ -197,6 +197,16 @@ export default function Home() {
     setShowBestSolution(false);
   }, [randomSix]);
 
+  const jumpToCountWithKeep = useCallback(
+    (keep: Card[], starterCard: Card) => {
+      setNote(null);
+      setHand(sortCards(keep));
+      setStarter(starterCard);
+      setActiveTab("count");
+    },
+    [],
+  );
+
   useEffect(() => {
     const storedTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
     if (storedTab === "count" || storedTab === "discard" || storedTab === "test") {
@@ -424,6 +434,7 @@ export default function Home() {
             onIncludeCribChange={setIncludeCrib}
             discardSuggestions={discardSuggestions}
             discardLoading={discardLoading}
+            onStarterPick={jumpToCountWithKeep}
           />
         )}
 
