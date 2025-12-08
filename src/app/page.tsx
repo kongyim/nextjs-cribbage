@@ -1248,7 +1248,7 @@ export default function Home() {
                     onClick={refreshTestHand}
                     className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:-translate-y-[1px] hover:bg-white/20"
                   >
-                    New random 6
+                    Reload
                   </button>
                   {faceStyleToggle}
                 </div>
@@ -1400,34 +1400,21 @@ export default function Home() {
                       Solver tries every discard; crib math matches your settings.
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowBestSolution((prev) => !prev)}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                        showBestSolution
-                          ? "border-lime-200/60 bg-lime-500/20 text-lime-50"
-                          : "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                      } ${!bestTestSuggestion ? "opacity-50" : ""}`}
-                    >
-                      {showBestSolution ? "Hide best" : "Show best"}
-                    </button>
-                    <div className="text-right">
-                      <div className="text-xs uppercase tracking-wide text-lime-200">
-                        Expected value
-                      </div>
-                      <div className="text-3xl font-black text-lime-100">
-                        {showBestSolution && bestTestSuggestion
-                          ? bestTestSuggestion.expectedValue.toFixed(2)
-                          : "—"}
-                      </div>
-                      {showBestSolution && bestTestSuggestion && testIncludeCrib && (
-                        <div className="mt-1 text-[11px] text-slate-300">
-                          Hand {bestTestSuggestion.handAverage.toFixed(2)} / Crib{" "}
-                          {bestTestSuggestion.cribAverage.toFixed(2)}
-                        </div>
-                      )}
+                  <div className="text-right">
+                    <div className="text-xs uppercase tracking-wide text-lime-200">
+                      Expected value
                     </div>
+                    <div className="text-3xl font-black text-lime-100">
+                      {showBestSolution && bestTestSuggestion
+                        ? bestTestSuggestion.expectedValue.toFixed(2)
+                        : "—"}
+                    </div>
+                    {showBestSolution && bestTestSuggestion && testIncludeCrib && (
+                      <div className="mt-1 text-[11px] text-slate-300">
+                        Hand {bestTestSuggestion.handAverage.toFixed(2)} / Crib{" "}
+                        {bestTestSuggestion.cribAverage.toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {!bestTestSuggestion && (
@@ -1514,6 +1501,21 @@ export default function Home() {
                     </p>
                   </div>
                 )}
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => bestTestSuggestion && setShowBestSolution((prev) => !prev)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      showBestSolution
+                        ? "border-lime-200/60 bg-lime-500/20 text-lime-50"
+                        : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                    } ${!bestTestSuggestion ? "cursor-not-allowed opacity-50" : ""}`}
+                    disabled={!bestTestSuggestion}
+                  >
+                    {showBestSolution ? "Hide best" : "Show best"}
+                  </button>
+                </div>
               </div>
             </section>
           </>
