@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "export": "next build",
+    "export": "next build && rm -rf ../kongyim.github.io/cribbage/ && mv out ../kongyim.github.io/cribbage",
     "start": "next start",
     "lint": "eslint"
   },
