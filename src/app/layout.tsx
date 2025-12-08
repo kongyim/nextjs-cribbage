@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+import { Suspense } from "react";
 import { Analytics } from "./components/Analytics";
 
-const GA_MEASUREMENT_ID = "G-BFVJCRTTG5";
+const GA_MEASUREMENT_ID = "G-12NT20J4Y5";
 
 export const metadata: Metadata = {
   title: "Cribbage Hand Counter",
@@ -35,7 +36,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased font-sans">
         {children}
-        <Analytics measurementId={GA_MEASUREMENT_ID} />
+        <Suspense fallback={null}>
+          <Analytics measurementId={GA_MEASUREMENT_ID} />
+        </Suspense>
       </body>
     </html>
   );
