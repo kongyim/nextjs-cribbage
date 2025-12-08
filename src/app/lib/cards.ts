@@ -34,6 +34,7 @@ export type DiscardSuggestion = {
   cribAverage: number;
   expectedValue: number;
   bestStarters: StarterScore[];
+  minHandScore: number;
 };
 
 export const RANKS: Array<{ label: string; value: number; order: number }> = [
@@ -385,6 +386,9 @@ export function evaluateDiscards(
     const discards = sixCards.filter((card) => !keep.some((k) => k.id === card.id));
     const { average: handAverage, best } = averageHandScores(keep, starterPool);
     const cribAverage = includeCrib ? expectedCribValue(discards, starterPool, isDealer) : 0;
+    const minHandScore = starterPool.length
+      ? Math.min(...starterPool.map((starter) => scoreHand(keep, starter).total))
+      : 0;
     const expectedValue = includeCrib
       ? isDealer
         ? handAverage + cribAverage
@@ -398,6 +402,7 @@ export function evaluateDiscards(
       cribAverage,
       expectedValue,
       bestStarters: best,
+      minHandScore,
     };
   });
 

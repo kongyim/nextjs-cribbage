@@ -16,6 +16,7 @@ import {
   scoreHand,
   scoreHandWithoutStarter,
   sortCards,
+  DiscardSuggestion,
 } from "./lib/cards";
 const ACTIVE_TAB_STORAGE_KEY = "cribbage-active-tab";
 const DEALER_STORAGE_KEY = "cribbage-is-dealer";
@@ -275,23 +276,27 @@ export default function Home() {
           const cribAverage = testIncludeCrib
             ? expectedCribValue(testDiscards, starterPool, testIsDealer)
             : 0;
-          const expectedValue = testIncludeCrib
-            ? testIsDealer
-              ? handAverage + cribAverage
-              : handAverage - cribAverage
-            : handAverage;
+        const expectedValue = testIncludeCrib
+          ? testIsDealer
+            ? handAverage + cribAverage
+            : handAverage - cribAverage
+          : handAverage;
+        const minHandScore = starterPool.length
+          ? Math.min(...starterPool.map((starter) => scoreHand(keep, starter).total))
+          : 0;
 
-          setUserTestChoice({
-            keep,
-            discards: testDiscards,
-            handAverage,
-            cribAverage,
-            expectedValue,
-            bestStarters,
-          });
-        } else {
-          setUserTestChoice(null);
-        }
+        setUserTestChoice({
+          keep,
+          discards: testDiscards,
+          handAverage,
+          cribAverage,
+          expectedValue,
+          bestStarters,
+          minHandScore,
+        });
+      } else {
+        setUserTestChoice(null);
+      }
         setTestLoading(false);
       }, 0);
     });

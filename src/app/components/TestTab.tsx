@@ -98,21 +98,21 @@ export function TestTab({
               >
                 Reload
               </button>
-              <button
-                onClick={onSendToDiscard}
-                disabled={testCards.length !== 6}
-                className={`inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold shadow transition ${
-                  testCards.length === 6
-                    ? "border-lime-200/60 bg-lime-500/20 text-lime-50 hover:-translate-y-[1px] hover:bg-lime-500/30"
-                    : "cursor-not-allowed border-white/20 bg-white/5 text-white/60"
-                }`}
-              >
-                View in discard tab
-              </button>
-              {faceStyleToggle}
-            </div>
+            <button
+              onClick={onSendToDiscard}
+              disabled={testCards.length !== 6}
+              className={`inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold shadow transition ${
+                testCards.length === 6
+                  ? "border-lime-200/60 bg-lime-500/20 text-lime-50 hover:-translate-y-[1px] hover:bg-lime-500/30"
+                  : "cursor-not-allowed border-white/20 bg-white/5 text-white/60"
+              }`}
+            >
+              View in discard tab
+            </button>
+            {faceStyleToggle}
           </div>
         </div>
+      </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
           {testCards.map((card) => {
@@ -228,6 +228,12 @@ export function TestTab({
               </div>
               <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm text-slate-100">
                 <div className="flex items-center justify-between">
+                  <span>Min hand score (worst starter)</span>
+                  <span className="font-semibold text-lime-100">
+                    {userTestChoice.minHandScore.toFixed(0)} pts
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span>Hand average</span>
                   <span className="font-semibold text-lime-100">
                     {userTestChoice.handAverage.toFixed(2)} pts
@@ -334,6 +340,12 @@ export function TestTab({
                 </div>
               </div>
               <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm text-slate-100">
+                <div className="flex items-center justify-between">
+                  <span>Min hand score (worst starter)</span>
+                  <span className="font-semibold text-lime-100">
+                    {bestTestSuggestion.minHandScore.toFixed(0)} pts
+                  </span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span>Hand average</span>
                   <span className="font-semibold text-lime-100">

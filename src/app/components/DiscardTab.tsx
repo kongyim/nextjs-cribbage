@@ -250,11 +250,11 @@ export function DiscardTab({
                       </div>
                     </div>
 
-                    <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr,0.8fr]">
-                      <div className="rounded-xl border border-white/5 bg-white/5 p-3">
-                        <div className="text-xs uppercase tracking-wide text-emerald-200">
-                          Keep
-                        </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr,0.8fr]">
+                  <div className="rounded-xl border border-white/5 bg-white/5 p-3">
+                    <div className="text-xs uppercase tracking-wide text-emerald-200">
+                      Keep
+                    </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {suggestion.keep.map((card) => (
                             <span
@@ -278,14 +278,20 @@ export function DiscardTab({
                             </span>
                           ))}
                         </div>
-                      </div>
+                  </div>
 
-                      <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm text-slate-100">
-                        <div className="flex items-center justify-between">
-                          <span>Hand average</span>
-                          <span className="font-semibold text-lime-100">
-                            {suggestion.handAverage.toFixed(2)} pts
-                          </span>
+                  <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm text-slate-100">
+                    <div className="flex items-center justify-between">
+                      <span>Min hand score (worst starter)</span>
+                      <span className="font-semibold text-lime-100">
+                        {suggestion.minHandScore.toFixed(0)} pts
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Hand average</span>
+                      <span className="font-semibold text-lime-100">
+                        {suggestion.handAverage.toFixed(2)} pts
+                      </span>
                         </div>
                         {includeCrib && (
                           <div className="mt-2 flex items-center justify-between">
