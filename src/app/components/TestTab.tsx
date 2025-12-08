@@ -87,7 +87,6 @@ export function TestTab({
   faceStyle,
   faceStyleToggle,
   testCards,
-  testDiscards,
   testNote,
   testSelectedIds,
   testIncludeCrib,

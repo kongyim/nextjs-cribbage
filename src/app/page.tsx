@@ -21,8 +21,6 @@ import {
 const ACTIVE_TAB_STORAGE_KEY = "cribbage-active-tab";
 const DEALER_STORAGE_KEY = "cribbage-is-dealer";
 const INCLUDE_CRIB_STORAGE_KEY = "cribbage-include-crib";
-const TEST_DEALER_STORAGE_KEY = "cribbage-test-is-dealer";
-const TEST_INCLUDE_CRIB_STORAGE_KEY = "cribbage-test-include-crib";
 const FACE_STYLE_STORAGE_KEY = "cribbage-face-style";
 
 export default function Home() {
@@ -39,8 +37,6 @@ export default function Home() {
   const [testCards, setTestCards] = useState<Card[]>([]);
   const [testDiscards, setTestDiscards] = useState<Card[]>([]);
   const [testNote, setTestNote] = useState<string | null>(null);
-  const [testIsDealer, setTestIsDealer] = useState(true);
-  const [testIncludeCrib, setTestIncludeCrib] = useState(true);
   const [bestTestSuggestion, setBestTestSuggestion] = useState<DiscardSuggestion | null>(null);
   const [userTestChoice, setUserTestChoice] = useState<DiscardSuggestion | null>(null);
   const [testLoading, setTestLoading] = useState(false);
@@ -220,14 +216,6 @@ export default function Home() {
     if (storedIncludeCrib === "true" || storedIncludeCrib === "false") {
       setIncludeCrib(storedIncludeCrib === "true");
     }
-    const storedTestDealer = localStorage.getItem(TEST_DEALER_STORAGE_KEY);
-    if (storedTestDealer === "true" || storedTestDealer === "false") {
-      setTestIsDealer(storedTestDealer === "true");
-    }
-    const storedTestIncludeCrib = localStorage.getItem(TEST_INCLUDE_CRIB_STORAGE_KEY);
-    if (storedTestIncludeCrib === "true" || storedTestIncludeCrib === "false") {
-      setTestIncludeCrib(storedTestIncludeCrib === "true");
-    }
     const storedFaceStyle = localStorage.getItem(FACE_STYLE_STORAGE_KEY);
     if (storedFaceStyle === "simple" || storedFaceStyle === "original") {
       setFaceStyle(storedFaceStyle);
@@ -245,14 +233,6 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(INCLUDE_CRIB_STORAGE_KEY, String(includeCrib));
   }, [includeCrib]);
-
-  useEffect(() => {
-    localStorage.setItem(TEST_DEALER_STORAGE_KEY, String(testIsDealer));
-  }, [testIsDealer]);
-
-  useEffect(() => {
-    localStorage.setItem(TEST_INCLUDE_CRIB_STORAGE_KEY, String(testIncludeCrib));
-  }, [testIncludeCrib]);
 
   useEffect(() => {
     localStorage.setItem(FACE_STYLE_STORAGE_KEY, faceStyle);
@@ -295,17 +275,17 @@ export default function Home() {
     let timeout: NodeJS.Timeout | null = null;
     const frame = requestAnimationFrame(() => {
       timeout = setTimeout(() => {
-        const best = evaluateDiscards(testCards, testIsDealer, testIncludeCrib)[0] ?? null;
+        const best = evaluateDiscards(testCards, isDealer, includeCrib)[0] ?? null;
         setBestTestSuggestion(best);
 
         const keep = testCards.filter((card) => !testDiscards.some((d) => d.id === card.id));
         const starterPool = DECK.filter((card) => !testCards.some((picked) => picked.id === card.id));
         const { average: handAverage, best: bestStarters } = averageHandScores(keep, starterPool);
-        const cribAverage = testIncludeCrib
-          ? expectedCribValue(testDiscards, starterPool, testIsDealer)
+        const cribAverage = includeCrib
+          ? expectedCribValue(testDiscards, starterPool, isDealer)
           : 0;
-        const expectedValue = testIncludeCrib
-          ? testIsDealer
+        const expectedValue = includeCrib
+          ? isDealer
             ? handAverage + cribAverage
             : handAverage - cribAverage
           : handAverage;
@@ -329,7 +309,7 @@ export default function Home() {
       cancelAnimationFrame(frame);
       if (timeout) clearTimeout(timeout);
     };
-  }, [testCards, testDiscards, testIncludeCrib, testIsDealer]);
+  }, [includeCrib, isDealer, testCards, testDiscards]);
 
   useEffect(() => {
     if (activeTab === "test" && testCards.length === 0) {
@@ -446,15 +426,15 @@ export default function Home() {
             testDiscards={testDiscards}
             testNote={testNote}
             testSelectedIds={testSelectedIds}
-            testIncludeCrib={testIncludeCrib}
-            testIsDealer={testIsDealer}
+            testIncludeCrib={includeCrib}
+            testIsDealer={isDealer}
             showBestSolution={showBestSolution}
             bestTestSuggestion={bestTestSuggestion}
             userTestChoice={userTestChoice}
             handleToggleTestDiscard={handleToggleTestDiscard}
             refreshTestHand={refreshTestHand}
-            onSetTestDealer={setTestIsDealer}
-            onSetTestIncludeCrib={setTestIncludeCrib}
+            onSetTestDealer={setIsDealer}
+            onSetTestIncludeCrib={setIncludeCrib}
             onToggleShowBest={() => bestTestSuggestion && setShowBestSolution((prev) => !prev)}
             onSendToDiscard={sendTestToDiscard}
             testLoading={testLoading}
