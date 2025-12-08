@@ -117,12 +117,22 @@ export default function Home() {
     setDiscardNote(null);
 
     if (discardSelectedIds.has(card.id)) {
-      setDiscardPick((prev) => prev.filter((c) => c.id !== card.id));
+      setDiscardPick((prev) => {
+        const next = prev.filter((c) => c.id !== card.id);
+        setDiscardLoading(false);
+        return next;
+      });
       return;
     }
 
     if (discardPick.length < 6) {
-      setDiscardPick((prev) => [...prev, card]);
+      setDiscardPick((prev) => {
+        const next = [...prev, card];
+        if (next.length === 6) {
+          setDiscardLoading(true);
+        }
+        return next;
+      });
       return;
     }
 
@@ -138,12 +148,14 @@ export default function Home() {
   const resetDiscard = () => {
     setDiscardPick([]);
     setDiscardNote(null);
+    setDiscardLoading(false);
   };
 
   const sendTestToDiscard = () => {
     if (testCards.length !== 6) return;
     setDiscardPick(sortCards(testCards));
     setDiscardNote(null);
+    setDiscardLoading(true);
     setActiveTab("discard");
   };
 
@@ -159,6 +171,7 @@ export default function Home() {
       const next = [...testDiscards, card];
       setTestDiscards(next);
       if (next.length === 2) {
+        setTestLoading(true);
         setShowBestSolution(true);
       } else {
         setShowBestSolution(false);
@@ -262,6 +275,12 @@ export default function Home() {
       setTestLoading(false);
       return;
     }
+    if (testDiscards.length < 2) {
+      setBestTestSuggestion(null);
+      setUserTestChoice(null);
+      setTestLoading(false);
+      return;
+    }
     setTestLoading(true);
     let timeout: NodeJS.Timeout | null = null;
     const frame = requestAnimationFrame(() => {
@@ -269,13 +288,12 @@ export default function Home() {
         const best = evaluateDiscards(testCards, testIsDealer, testIncludeCrib)[0] ?? null;
         setBestTestSuggestion(best);
 
-        if (testDiscards.length === 2) {
-          const keep = testCards.filter((card) => !testDiscards.some((d) => d.id === card.id));
-          const starterPool = DECK.filter((card) => !testCards.some((picked) => picked.id === card.id));
-          const { average: handAverage, best: bestStarters } = averageHandScores(keep, starterPool);
-          const cribAverage = testIncludeCrib
-            ? expectedCribValue(testDiscards, starterPool, testIsDealer)
-            : 0;
+        const keep = testCards.filter((card) => !testDiscards.some((d) => d.id === card.id));
+        const starterPool = DECK.filter((card) => !testCards.some((picked) => picked.id === card.id));
+        const { average: handAverage, best: bestStarters } = averageHandScores(keep, starterPool);
+        const cribAverage = testIncludeCrib
+          ? expectedCribValue(testDiscards, starterPool, testIsDealer)
+          : 0;
         const expectedValue = testIncludeCrib
           ? testIsDealer
             ? handAverage + cribAverage
@@ -294,9 +312,6 @@ export default function Home() {
           bestStarters,
           minHandScore,
         });
-      } else {
-        setUserTestChoice(null);
-      }
         setTestLoading(false);
       }, 0);
     });

@@ -233,7 +233,7 @@ export function TestTab({
                     {userTestChoice.minHandScore.toFixed(0)} pts
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="mt-2 flex items-center justify-between">
                   <span>Hand average</span>
                   <span className="font-semibold text-lime-100">
                     {userTestChoice.handAverage.toFixed(2)} pts
@@ -346,7 +346,7 @@ export function TestTab({
                     {bestTestSuggestion.minHandScore.toFixed(0)} pts
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="mt-2 flex items-center justify-between">
                   <span>Hand average</span>
                   <span className="font-semibold text-lime-100">
                     {bestTestSuggestion.handAverage.toFixed(2)} pts
