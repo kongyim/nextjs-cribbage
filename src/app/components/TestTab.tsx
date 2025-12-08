@@ -150,12 +150,6 @@ export function TestTab({
               Include crib impact
             </label>
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={refreshTestHand}
-                className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:-translate-y-[1px] hover:bg-white/20"
-              >
-                Reload
-              </button>
             <button
               onClick={onSendToDiscard}
               disabled={testCards.length !== 6}
@@ -216,6 +210,13 @@ export function TestTab({
           </p>
         )}
       </div>
+
+      <button
+        onClick={refreshTestHand}
+        className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
+      >
+        Next question
+      </button>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/40 backdrop-blur">
