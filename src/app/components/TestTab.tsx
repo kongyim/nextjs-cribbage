@@ -28,6 +28,7 @@ type Props = {
   onSetTestDealer: (value: boolean) => void;
   onSetTestIncludeCrib: (value: boolean) => void;
   onToggleShowBest: () => void;
+  onSendToDiscard: () => void;
 };
 
 export function TestTab({
@@ -47,6 +48,7 @@ export function TestTab({
   onSetTestDealer,
   onSetTestIncludeCrib,
   onToggleShowBest,
+  onSendToDiscard,
 }: Props) {
   return (
     <>
@@ -87,13 +89,26 @@ export function TestTab({
               />
               Include crib impact
             </label>
-            <button
-              onClick={refreshTestHand}
-              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:-translate-y-[1px] hover:bg-white/20"
-            >
-              Reload
-            </button>
-            {faceStyleToggle}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={refreshTestHand}
+                className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow hover:-translate-y-[1px] hover:bg-white/20"
+              >
+                Reload
+              </button>
+              <button
+                onClick={onSendToDiscard}
+                disabled={testCards.length !== 6}
+                className={`inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold shadow transition ${
+                  testCards.length === 6
+                    ? "border-lime-200/60 bg-lime-500/20 text-lime-50 hover:-translate-y-[1px] hover:bg-lime-500/30"
+                    : "cursor-not-allowed border-white/20 bg-white/5 text-white/60"
+                }`}
+              >
+                View in discard tab
+              </button>
+              {faceStyleToggle}
+            </div>
           </div>
         </div>
 
@@ -233,14 +248,6 @@ export function TestTab({
               </div>
             </div>
           )}
-          {userTestChoice && (
-            <div className="mt-3 rounded-lg border border-lime-200/30 bg-lime-500/10 px-3 py-2 text-sm text-lime-50">
-              Remaining 4 cards hand avg:{" "}
-              <span className="font-semibold text-white">
-                {userTestChoice.handAverage.toFixed(2)} pts
-              </span>
-            </div>
-          )}
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/40 backdrop-blur">
@@ -338,15 +345,6 @@ export function TestTab({
                   ))}
                 </div>
               </div>
-            </div>
-          )}
-
-          {bestTestSuggestion && showBestSolution && (
-            <div className="mt-3 rounded-lg border border-lime-200/30 bg-lime-500/10 px-3 py-2 text-sm text-lime-50">
-              Remaining 4 cards hand avg:{" "}
-              <span className="font-semibold text-white">
-                {bestTestSuggestion.handAverage.toFixed(2)} pts
-              </span>
             </div>
           )}
 

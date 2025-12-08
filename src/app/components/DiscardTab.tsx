@@ -110,7 +110,7 @@ export function DiscardTab({
                 discard to find the best expected value.
               </p>
             </div>
-            <div className="flex flex-col gap-2 sm:items-end">
+            <div className="flex flex-wrap items-center gap-3 sm:justify-end">
               <div className="flex overflow-hidden rounded-full border border-white/10 bg-white/10 text-xs font-semibold text-white">
                 <button
                   onClick={() => onDealerChange(true)}

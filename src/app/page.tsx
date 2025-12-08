@@ -168,6 +168,13 @@ export default function Home() {
     setDiscardNote(null);
   };
 
+  const sendTestToDiscard = () => {
+    if (testCards.length !== 6) return;
+    setDiscardPick(sortCards(testCards));
+    setDiscardNote(null);
+    setActiveTab("discard");
+  };
+
   const handleToggleTestDiscard = (card: Card) => {
     setTestNote(null);
     if (testDiscards.some((c) => c.id === card.id)) {
@@ -379,6 +386,7 @@ export default function Home() {
             onSetTestDealer={setTestIsDealer}
             onSetTestIncludeCrib={setTestIncludeCrib}
             onToggleShowBest={() => bestTestSuggestion && setShowBestSolution((prev) => !prev)}
+            onSendToDiscard={sendTestToDiscard}
           />
         )}
       </div>
