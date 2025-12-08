@@ -377,32 +377,48 @@ export function DiscardTab({
                         <div className="mt-2 text-xs text-slate-300">
                           Best starters for this keep:
                         </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {groupStarterScores(suggestion.bestStarters).flatMap(({ cards, score }) =>
-                            buildRankSegments(cards).map(({ rank, suits, starterCard }) => (
-                              <button
-                                type="button"
-                                key={`starter-${score}-${rank}-${starterCard.id}`}
-                                onClick={() => starterCard && onStarterPick(suggestion.keep, starterCard)}
-                                className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-50 shadow hover:-translate-y-[1px] hover:border-sky-100 hover:bg-sky-400/25 hover:shadow-sky-500/30 transition"
+                        <div className="mt-3 space-y-3">
+                          {groupStarterScores(suggestion.bestStarters).map(({ cards, score }) => {
+                            const segments = buildRankSegments(cards);
+                            return (
+                              <div
+                                key={`starter-block-${score}-${cards.map((c) => c.id).join("-")}`}
+                                className="flex flex-col gap-2 rounded-xl border border-sky-200/30 py-1 px-2 shadow-sm shadow-sky-900/30"
                               >
-                                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-1.5 py-0.5">
-                                  <span className="font-semibold">{rank}</span>
-                                  <span className="flex items-center gap-0.5 text-[11px]">
-                                    {suits.map((suit) => (
-                                      <span
-                                        key={`${rank}-${suit}`}
-                                        className="rounded bg-sky-400/40 px-1 py-[1px]"
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="flex flex-wrap gap-2">
+                                    {segments.map(({ rank, suits, starterCard }) => (
+                                      <button
+                                        type="button"
+                                        key={`starter-${score}-${rank}-${starterCard.id}`}
+                                        onClick={() =>
+                                          starterCard && onStarterPick(suggestion.keep, starterCard)
+                                        }
+                                        className="inline-flex items-center gap-2 rounded-full border border-sky-200/60 bg-sky-500/20 px-3 py-1 text-xs font-semibold text-sky-50 transition hover:-translate-y-[1px] hover:border-sky-100 hover:bg-sky-400/30 hover:shadow-sky-500/30"
                                       >
-                                        {suit}
-                                      </span>
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-1.5 py-0.5">
+                                          <span className="font-semibold">{rank}</span>
+                                          <span className="flex items-center gap-0.5 text-[11px]">
+                                            {suits.map((suit) => (
+                                              <span
+                                                key={`${rank}-${suit}`}
+                                                className="rounded bg-sky-400/40 px-1 py-[1px]"
+                                              >
+                                                {suit}
+                                              </span>
+                                            ))}
+                                          </span>
+                                        </span>
+                                      </button>
                                     ))}
-                                  </span>
-                                </span>
-                                <span className="text-slate-200">{score} pts</span>
-                              </button>
-                            )),
-                          )}
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-lg font-bold text-sky-50">{score} pts</div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
