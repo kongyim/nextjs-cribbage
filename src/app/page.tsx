@@ -241,11 +241,17 @@ export default function Home() {
       return;
     }
     setDiscardLoading(true);
-    const handle = setTimeout(() => {
-      setDiscardSuggestions(evaluateDiscards(discardPick, isDealer, includeCrib));
-      setDiscardLoading(false);
-    }, 0);
-    return () => clearTimeout(handle);
+    let timeout: NodeJS.Timeout | null = null;
+    const frame = requestAnimationFrame(() => {
+      timeout = setTimeout(() => {
+        setDiscardSuggestions(evaluateDiscards(discardPick, isDealer, includeCrib));
+        setDiscardLoading(false);
+      }, 0);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (timeout) clearTimeout(timeout);
+    };
   }, [discardPick, includeCrib, isDealer]);
 
   useEffect(() => {
@@ -256,37 +262,43 @@ export default function Home() {
       return;
     }
     setTestLoading(true);
-    const handle = setTimeout(() => {
-      const best = evaluateDiscards(testCards, testIsDealer, testIncludeCrib)[0] ?? null;
-      setBestTestSuggestion(best);
+    let timeout: NodeJS.Timeout | null = null;
+    const frame = requestAnimationFrame(() => {
+      timeout = setTimeout(() => {
+        const best = evaluateDiscards(testCards, testIsDealer, testIncludeCrib)[0] ?? null;
+        setBestTestSuggestion(best);
 
-      if (testDiscards.length === 2) {
-        const keep = testCards.filter((card) => !testDiscards.some((d) => d.id === card.id));
-        const starterPool = DECK.filter((card) => !testCards.some((picked) => picked.id === card.id));
-        const { average: handAverage, best: bestStarters } = averageHandScores(keep, starterPool);
-        const cribAverage = testIncludeCrib
-          ? expectedCribValue(testDiscards, starterPool, testIsDealer)
-          : 0;
-        const expectedValue = testIncludeCrib
-          ? testIsDealer
-            ? handAverage + cribAverage
-            : handAverage - cribAverage
-          : handAverage;
+        if (testDiscards.length === 2) {
+          const keep = testCards.filter((card) => !testDiscards.some((d) => d.id === card.id));
+          const starterPool = DECK.filter((card) => !testCards.some((picked) => picked.id === card.id));
+          const { average: handAverage, best: bestStarters } = averageHandScores(keep, starterPool);
+          const cribAverage = testIncludeCrib
+            ? expectedCribValue(testDiscards, starterPool, testIsDealer)
+            : 0;
+          const expectedValue = testIncludeCrib
+            ? testIsDealer
+              ? handAverage + cribAverage
+              : handAverage - cribAverage
+            : handAverage;
 
-        setUserTestChoice({
-          keep,
-          discards: testDiscards,
-          handAverage,
-          cribAverage,
-          expectedValue,
-          bestStarters,
-        });
-      } else {
-        setUserTestChoice(null);
-      }
-      setTestLoading(false);
-    }, 0);
-    return () => clearTimeout(handle);
+          setUserTestChoice({
+            keep,
+            discards: testDiscards,
+            handAverage,
+            cribAverage,
+            expectedValue,
+            bestStarters,
+          });
+        } else {
+          setUserTestChoice(null);
+        }
+        setTestLoading(false);
+      }, 0);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (timeout) clearTimeout(timeout);
+    };
   }, [testCards, testDiscards, testIncludeCrib, testIsDealer]);
 
   useEffect(() => {
