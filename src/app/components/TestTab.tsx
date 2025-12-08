@@ -121,7 +121,7 @@ export function TestTab({
               line compares to the solver.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 justify-end">
             <div className="flex overflow-hidden rounded-full border border-white/10 bg-white/10 text-xs font-semibold text-white">
               <button
                 onClick={() => onSetTestDealer(true)}
@@ -150,17 +150,6 @@ export function TestTab({
               Include crib impact
             </label>
             <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={onSendToDiscard}
-              disabled={testCards.length !== 6}
-              className={`inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold shadow transition ${
-                testCards.length === 6
-                  ? "border-lime-200/60 bg-lime-500/20 text-lime-50 hover:-translate-y-[1px] hover:bg-lime-500/30"
-                  : "cursor-not-allowed border-white/20 bg-white/5 text-white/60"
-              }`}
-            >
-              View in discard tab
-            </button>
             {faceStyleToggle}
           </div>
         </div>
@@ -213,9 +202,16 @@ export function TestTab({
 
       <button
         onClick={refreshTestHand}
-        className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
+        className="inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
       >
         Next question
+      </button>
+      <button
+        onClick={onSendToDiscard}
+        disabled={testCards.length !== 6}
+        className="inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
+      >
+        View in discard tab
       </button>
 
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
