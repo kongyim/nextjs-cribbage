@@ -27,6 +27,11 @@ export type StarterScore = {
   score: number;
 };
 
+export type StarterScoreGroup = {
+  score: number;
+  cards: Card[];
+};
+
 export type DiscardSuggestion = {
   keep: Card[];
   discards: Card[];
@@ -337,9 +342,32 @@ export function averageHandScores(hand: Card[], starterPool: Card[]) {
   }));
 
   const total = scores.reduce((acc, entry) => acc + entry.score, 0);
-  const best = [...scores].sort((a, b) => b.score - a.score).slice(0, 3);
+  const sorted = [...scores].sort((a, b) => b.score - a.score);
+
+  // Keep all starters that fall within the top 3 unique point values.
+  const best: StarterScore[] = [];
+  const seenScores = new Set<number>();
+  for (const entry of sorted) {
+    if (seenScores.size >= 3 && !seenScores.has(entry.score)) break;
+    best.push(entry);
+    seenScores.add(entry.score);
+  }
 
   return { average: total / scores.length, best };
+}
+
+export function groupStarterScores(starters: StarterScore[]): StarterScoreGroup[] {
+  const groups = new Map<number, Card[]>();
+
+  starters.forEach(({ card, score }) => {
+    const list = groups.get(score) ?? [];
+    list.push(card);
+    groups.set(score, list);
+  });
+
+  return Array.from(groups.entries())
+    .sort((a, b) => b[0] - a[0])
+    .map(([score, cards]) => ({ score, cards: sortCards(cards) }));
 }
 
 export function expectedCribValue(ourDiscards: Card[], starterPool: Card[], isDealer: boolean) {

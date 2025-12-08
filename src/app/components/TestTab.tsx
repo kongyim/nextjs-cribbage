@@ -6,8 +6,10 @@ import {
   Card,
   DiscardSuggestion,
   FaceStyle,
+  SUIT_ORDER,
   cardImagePath,
   cardLabel,
+  groupStarterScores,
   sortCards,
 } from "../lib/cards";
 
@@ -32,6 +34,55 @@ type Props = {
   testLoading: boolean;
 };
 
+function summarizeStarterRanks(cards: Card[]) {
+  const byRank = new Map<string, { order: number; suits: Set<string> }>();
+
+  cards.forEach((card) => {
+    const existing = byRank.get(card.rank);
+    if (existing) {
+      existing.suits.add(card.suit);
+    } else {
+      byRank.set(card.rank, { order: card.order, suits: new Set([card.suit]) });
+    }
+    });
+
+  return Array.from(byRank.entries())
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([rank, { suits }]) => {
+      const suitString = Array.from(suits)
+        .sort((a, b) => SUIT_ORDER[a as keyof typeof SUIT_ORDER] - SUIT_ORDER[b as keyof typeof SUIT_ORDER])
+        .join("");
+      return { rank, suitString };
+    })
+    .map(({ rank, suitString }) => ({ rank, suits: suitString.split("") }));
+}
+
+function renderStarterGroup(cards: Card[]) {
+  const grouped = summarizeStarterRanks(cards);
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {grouped.map(({ rank, suits }) => (
+        <span
+          key={`${rank}-${suits.join("")}`}
+          className="inline-flex items-center rounded-full bg-sky-500/20 px-1.5 py-0.5"
+        >
+          <span className="font-semibold">{rank}</span>
+          <span className="flex items-center text-[11px]">
+            {suits.map((suit) => (
+              <span
+                key={`${rank}-${suit}`}
+                className="rounded py-[1px]"
+              >
+                {suit}
+              </span>
+            ))}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function TestTab({
   faceStyle,
   faceStyleToggle,
@@ -52,6 +103,13 @@ export function TestTab({
   onSendToDiscard,
   testLoading,
 }: Props) {
+  const groupedUserBestStarters = userTestChoice
+    ? groupStarterScores(userTestChoice.bestStarters)
+    : [];
+  const groupedBestStarters = bestTestSuggestion
+    ? groupStarterScores(bestTestSuggestion.bestStarters)
+    : [];
+
   return (
     <>
       <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-slate-950/50 backdrop-blur">
@@ -251,12 +309,12 @@ export function TestTab({
                   Best starters for your keep:
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {userTestChoice.bestStarters.map(({ card, score }) => (
+                  {groupedUserBestStarters.map(({ cards, score }) => (
                     <span
-                      key={`user-starter-${card.id}`}
+                      key={`user-starter-group-${score}-${cards.map((c) => c.id).join("-")}`}
                       className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-50"
                     >
-                      <span>{cardLabel(card)}</span>
+                      {renderStarterGroup(cards)}
                       <span className="text-slate-200">{score} pts</span>
                     </span>
                   ))}
@@ -364,12 +422,12 @@ export function TestTab({
                   Best starters:
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {bestTestSuggestion.bestStarters.map(({ card, score }) => (
+                  {groupedBestStarters.map(({ cards, score }) => (
                     <span
-                      key={`best-starter-${card.id}`}
+                      key={`best-starter-group-${score}-${cards.map((c) => c.id).join("-")}`}
                       className="inline-flex items-center gap-2 rounded-full border border-sky-200/50 bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-50"
                     >
-                      <span>{cardLabel(card)}</span>
+                      {renderStarterGroup(cards)}
                       <span className="text-slate-200">{score} pts</span>
                     </span>
                   ))}

@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   },
   trailingSlash: true,
   assetPrefix: ".",
+  // Keep the build ID stable so exported filenames stay under the same folder across runs.
+  generateBuildId: async () => "static-build",
 };
 
 if (basePath) {
