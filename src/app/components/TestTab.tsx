@@ -199,20 +199,6 @@ export function TestTab({
         )}
       </div>
 
-      <button
-        onClick={refreshTestHand}
-        className="inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
-      >
-        Next question
-      </button>
-      <button
-        onClick={onSendToDiscard}
-        disabled={testCards.length !== 6}
-        className="inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
-      >
-        View in discard tab
-      </button>
-
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/40 backdrop-blur">
           <div className="flex items-center justify-between">
@@ -460,6 +446,20 @@ export function TestTab({
           </div>
         </div>
       </section>
+
+      <button
+        onClick={refreshTestHand}
+        className="inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
+      >
+        Next question
+      </button>
+      <button
+        onClick={onSendToDiscard}
+        disabled={testCards.length !== 6}
+        className="inline-flex w-full items-center justify-center rounded-2xl border border-lime-200/60 bg-gradient-to-r from-lime-500/70 to-emerald-500/70 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-lime-500/30 transition hover:-translate-y-[1px] hover:shadow-emerald-500/40"
+      >
+        View in discard tab
+      </button>
     </>
   );
 }
