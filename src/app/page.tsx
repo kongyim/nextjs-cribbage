@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CountTab } from "./components/CountTab";
 import { DiscardTab } from "./components/DiscardTab";
 import { FaceStyleToggle } from "./components/FaceStyleToggle";
+import { ScoreBoardTab } from "./components/ScoreBoardTab";
 import { TestTab } from "./components/TestTab";
 import {
   Card,
@@ -24,7 +25,7 @@ const INCLUDE_CRIB_STORAGE_KEY = "cribbage-include-crib";
 const FACE_STYLE_STORAGE_KEY = "cribbage-face-style";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"count" | "discard" | "test">("test");
+  const [activeTab, setActiveTab] = useState<"count" | "discard" | "test" | "board">("test");
   const [hand, setHand] = useState<Card[]>([]);
   const [starter, setStarter] = useState<Card | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export default function Home() {
   const [showBestSolution, setShowBestSolution] = useState(false);
   const [faceStyle, setFaceStyle] = useState<FaceStyle>("original");
   const picksRef = useRef<HTMLDivElement | null>(null);
+  const boardResetRef = useRef<(() => void) | null>(null);
   const hasAutoScrolled = useRef(false);
 
   const selectedIds = useMemo(
@@ -205,7 +207,7 @@ export default function Home() {
 
   useEffect(() => {
     const storedTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-    if (storedTab === "count" || storedTab === "discard" || storedTab === "test") {
+    if (storedTab === "count" || storedTab === "discard" || storedTab === "test" || storedTab === "board") {
       setActiveTab(storedTab);
     }
     const storedDealer = localStorage.getItem(DEALER_STORAGE_KEY);
@@ -366,6 +368,14 @@ export default function Home() {
               >
                 Test yourself
               </button>
+              <button
+                onClick={() => setActiveTab("board")}
+                className={`px-3 py-2 transition ${
+                  activeTab === "board" ? "bg-white/20" : "hover:bg-white/10"
+                }`}
+              >
+                Track a game
+              </button>
             </div>
             <button
               onClick={
@@ -373,11 +383,13 @@ export default function Home() {
                   ? resetCount
                   : activeTab === "discard"
                     ? resetDiscard
-                    : refreshTestHand
+                    : activeTab === "test"
+                      ? refreshTestHand
+                      : () => boardResetRef.current?.()
               }
               className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-950/30 transition hover:-translate-y-[1px] hover:bg-white/20 hover:shadow-slate-900/50"
             >
-              Reset selection
+              {activeTab === "board" ? "Reset game" : "Reset selection"}
             </button>
           </div>
         </header>
@@ -438,6 +450,14 @@ export default function Home() {
             onToggleShowBest={() => bestTestSuggestion && setShowBestSolution((prev) => !prev)}
             onSendToDiscard={sendTestToDiscard}
             testLoading={testLoading}
+          />
+        )}
+
+        {activeTab === "board" && (
+          <ScoreBoardTab
+            onRegisterReset={(fn) => {
+              boardResetRef.current = fn;
+            }}
           />
         )}
       </div>
