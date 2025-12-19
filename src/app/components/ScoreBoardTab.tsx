@@ -427,47 +427,49 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               </div>
 
               <div className="space-y-3">
-                {playerStates.map((player) => (
-                  <div
-                    key={player.id}
-                    className={`rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/30 ring-1 ${player.preset.ringClass}`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`h-3 w-3 rounded-full border ${player.preset.pegClass}`}
-                          aria-hidden
-                        />
-                        <input
-                          value={player.name}
-                          onChange={(e) => handleNameChange(player.id, e.target.value)}
-                          className="bg-transparent text-sm font-semibold text-white outline-none"
-                        />
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {playerStates.map((player) => (
+                    <div
+                      key={player.id}
+                      className={`h-full rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/30 ring-1 ${player.preset.ringClass}`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-3 w-3 rounded-full border ${player.preset.pegClass}`}
+                            aria-hidden
+                          />
+                          <input
+                            value={player.name}
+                            onChange={(e) => handleNameChange(player.id, e.target.value)}
+                            className="bg-transparent text-sm font-semibold text-white outline-none"
+                          />
+                        </div>
+                        <div className="text-right text-xs text-slate-200">
+                          <div className="font-semibold text-white">
+                            {player.current} / {TOTAL_POINTS}
+                          </div>
+                          <div className="text-[11px] text-slate-300">
+                            Last peg at {player.previous}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right text-xs text-slate-200">
-                        <div className="font-semibold text-white">
-                          {player.current} / {TOTAL_POINTS}
-                        </div>
-                        <div className="text-[11px] text-slate-300">
-                          Last peg at {player.previous}
-                        </div>
+                      <div className="mt-3 grid grid-cols-5 gap-2">
+                        {SCORE_CHOICES.map((value) => (
+                          <button
+                            key={`${player.id}-${value}`}
+                            onClick={() => addScore(player.id, value)}
+                            disabled={!!winningEntry}
+                            className="rounded-lg border border-white/15 bg-white/10 px-2 py-2 text-center text-sm font-semibold text-white shadow-sm shadow-black/40 transition hover:-translate-y-[1px] hover:bg-white/20 hover:shadow-black/60 disabled:cursor-not-allowed disabled:opacity-50"
+                            title={`Add +${value} to ${player.name}`}
+                          >
+                            +{value}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-10">
-                      {SCORE_CHOICES.map((value) => (
-                        <button
-                          key={`${player.id}-${value}`}
-                          onClick={() => addScore(player.id, value)}
-                          disabled={!!winningEntry}
-                          className="rounded-lg border border-white/15 bg-white/10 px-2 py-2 text-center text-sm font-semibold text-white shadow-sm shadow-black/40 transition hover:-translate-y-[1px] hover:bg-white/20 hover:shadow-black/60 disabled:cursor-not-allowed disabled:opacity-50"
-                          title={`Add +${value} to ${player.name}`}
-                        >
-                          +{value}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-200 shadow-inner shadow-black/30">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-lime-300" />
@@ -488,7 +490,6 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
             </div>
           </div>
         </div>
-
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/50">
             <div className="flex items-center justify-between">
