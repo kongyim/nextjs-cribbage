@@ -515,7 +515,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                         }}
                       >
                         <div
-                          className={`h-4 w-4 rounded-full border-2 ${player.preset.pegClass} ${player.preset.glowClass}`}
+                          className={`h-4 w-4 ${player.preset.pegClass}`}
                           style={{ transform: "translate(-50%, -50%)" }}
                           title={`${player.name} peg A`}
                         />
@@ -529,7 +529,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                         }}
                       >
                         <div
-                          className={`h-3.5 w-3.5 rounded-full border-2 opacity-80 ${player.preset.trailClass}`}
+                          className={`h-4 w-4 ${player.preset.trailClass}`}
                           style={{ transform: "translate(-50%, -50%)" }}
                           title={`${player.name} peg B`}
                         />
