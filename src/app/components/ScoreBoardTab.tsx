@@ -173,6 +173,9 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     [history],
   );
 
+  const playerGridCols =
+    playerStates.length === 2 ? "sm:grid-cols-2 lg:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3";
+
   const resetGame = useCallback(
     (count?: PlayerCount) => {
       const nextCount = count ?? playerCount;
@@ -436,7 +439,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               </div>
 
               <div className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={`grid gap-3 ${playerGridCols}`}>
                   {playerStates.map((player) => (
                     <div
                       key={player.id}
