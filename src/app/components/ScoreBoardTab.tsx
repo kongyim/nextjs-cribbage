@@ -422,8 +422,8 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                             {START_SLOT_OFFSETS.map((_, pegIdx) => (
                               <span
                                 key={`start-${rowIdx}-${pegIdx}`}
-                                className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${preset?.pegClass ?? "border-white/20 bg-white/10"}`}
-                                style={{ left: `${startSlotLeftPercent(pegIdx)}%` }}
+                            className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${preset?.pegClass ?? "border-white/20 bg-white/10"}`}
+                                style={{ left: `${startSlotLeftPercent(pegIdx)}%`, opacity: 0.2 }}
                                 aria-hidden
                               />
                             ))}
@@ -463,7 +463,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                                   key={`hole-${rowIdx}-${colIdx}`}
                                   title={`${player.name} score ${scoreLabel}`}
                                   className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-sm ${preset?.trailClass ?? "border-white/20 bg-white/10"}`}
-                                  style={{ left: `${left}%` }}
+                                  style={{ left: `${left}%`, opacity: 0.2 }}
                                   aria-hidden
                                 />
                               );
@@ -502,9 +502,6 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 {playerStates.map((player, idx) => {
                   const pegAPos = percentPosition(player.pegA, idx, "A");
                   const pegBPos = percentPosition(player.pegB, idx, "B");
-                  const finishPeg = player.current >= TOTAL_POINTS;
-                  const pegAOffset = finishPeg ? { x: 0, y: 0 } : { x: 0, y: 0 };
-                  const pegBOffset = finishPeg ? { x: 0, y: 0 } : { x: 0, y: 0 };
                   return (
                     <div key={player.id}>
                       <div
@@ -517,9 +514,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       >
                         <div
                           className={`h-4 w-4 rounded-full border-2 ${player.preset.pegClass} ${player.preset.glowClass}`}
-                          style={{
-                            transform: `translate(-50%, -50%) translateX(${pegAOffset.x}px) translateY(${pegAOffset.y}px)`,
-                          }}
+                          style={{ transform: "translate(-50%, -50%)" }}
                           title={`${player.name} peg A`}
                         />
                       </div>
@@ -533,9 +528,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       >
                         <div
                           className={`h-3.5 w-3.5 rounded-full border-2 opacity-80 ${player.preset.trailClass}`}
-                          style={{
-                            transform: `translate(-50%, -50%) translateX(${pegBOffset.x - 4}px) translateY(${pegBOffset.y + 3}px)`,
-                          }}
+                          style={{ transform: "translate(-50%, -50%)" }}
                           title={`${player.name} peg B`}
                         />
                       </div>
