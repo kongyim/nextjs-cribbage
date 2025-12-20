@@ -52,22 +52,22 @@ const PLAYER_PRESETS: PlayerPreset[] = [
   {
     id: "p1",
     defaultName: "Player 1",
+    pegClass: "bg-rose-300 border-rose-100",
+    trailClass: "bg-rose-700 border-rose-500",
+    badgeClass: "bg-rose-500/15 border-rose-400/30 text-rose-50",
+    glowClass: "shadow-rose-500/40",
+    textClass: "text-rose-100",
+    ringClass: "ring-rose-300/60",
+  },
+  {
+    id: "p2",
+    defaultName: "Player 2",
     pegClass: "bg-sky-300 border-sky-100",
     trailClass: "bg-sky-700 border-sky-500",
     badgeClass: "bg-sky-500/15 border-sky-400/30 text-sky-50",
     glowClass: "shadow-sky-500/40",
     textClass: "text-sky-100",
     ringClass: "ring-sky-300/60",
-  },
-  {
-    id: "p2",
-    defaultName: "Player 2",
-    pegClass: "bg-amber-300 border-amber-100",
-    trailClass: "bg-amber-700 border-amber-500",
-    badgeClass: "bg-amber-500/15 border-amber-400/40 text-amber-50",
-    glowClass: "shadow-amber-500/40",
-    textClass: "text-amber-100",
-    ringClass: "ring-amber-300/60",
   },
   {
     id: "p3",
@@ -157,6 +157,15 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const playerStates = useMemo(
     () => computePlayerStates(players, history),
     [players, history],
+  );
+
+  const presetLookup = useMemo(
+    () =>
+      players.reduce<Record<string, PlayerPreset>>((acc, player) => {
+        acc[player.id] = player.preset;
+        return acc;
+      }, {}),
+    [players],
   );
 
   const winningEntry = useMemo(
@@ -502,24 +511,40 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               </p>
             ) : (
               <ul className="mt-3 max-h-[380px] space-y-2 overflow-y-auto pr-1">
-                {[...history].reverse().map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100"
-                  >
-                    <div>
-                      <div className="font-semibold">
-                        {entry.playerName} +{entry.amount}
+                {[...history].reverse().map((entry) => {
+                  const preset = presetLookup[entry.playerId];
+                  return (
+                    <li
+                      key={entry.id}
+                      className={`flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 ring-1 ${preset?.ringClass ?? "ring-white/5"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full border ${preset?.pegClass ?? "border-white/20 bg-white/20"}`}
+                          aria-hidden
+                        />
+                        <div>
+                          <div className={`font-semibold ${preset?.textClass ?? ""}`}>
+                            {entry.playerName}
+                          </div>
+                          <div className="text-xs text-slate-300">
+                            {entry.before} → {entry.after} • {formatTime(entry.timestamp)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-300">
-                        {entry.before} → {entry.after} • {formatTime(entry.timestamp)}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${preset?.badgeClass ?? "border-white/10 bg-white/10 text-white"}`}
+                        >
+                          +{entry.amount}
+                        </span>
+                        <div className="text-xs font-semibold text-lime-200">
+                          {entry.after >= TOTAL_POINTS ? "🏆" : ""}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-xs font-semibold text-lime-200">
-                      {entry.after >= TOTAL_POINTS ? "🏆" : ""}
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
