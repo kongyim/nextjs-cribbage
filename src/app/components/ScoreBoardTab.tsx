@@ -52,7 +52,7 @@ const PLAYER_PRESETS: PlayerPreset[] = [
   {
     id: "p1",
     defaultName: "Player 1",
-    pegClass: "bg-rose-300 border-rose-100",
+    pegClass: "bg-rose-700 border-rose-500",
     trailClass: "bg-rose-700 border-rose-500",
     badgeClass: "bg-rose-500/15 border-rose-400/30 text-rose-50",
     glowClass: "shadow-rose-500/40",
@@ -62,7 +62,7 @@ const PLAYER_PRESETS: PlayerPreset[] = [
   {
     id: "p2",
     defaultName: "Player 2",
-    pegClass: "bg-sky-300 border-sky-100",
+    pegClass: "bg-sky-700 border-sky-500",
     trailClass: "bg-sky-700 border-sky-500",
     badgeClass: "bg-sky-500/15 border-sky-400/30 text-sky-50",
     glowClass: "shadow-sky-500/40",
@@ -72,7 +72,7 @@ const PLAYER_PRESETS: PlayerPreset[] = [
   {
     id: "p3",
     defaultName: "Player 3",
-    pegClass: "bg-emerald-300 border-emerald-100",
+    pegClass: "bg-emerald-700 border-emerald-500",
     trailClass: "bg-emerald-700 border-emerald-500",
     badgeClass: "bg-emerald-500/15 border-emerald-400/40 text-emerald-50",
     glowClass: "shadow-emerald-500/40",
@@ -418,7 +418,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                           className="absolute left-0 right-0"
                           style={{ top: `${top}%`, transform: "translateY(-50%)" }}
                         >
-                          <div className="relative mx-auto h-12 w-full max-w-3xl">
+                          {/* <div className="relative mx-auto h-12 w-full max-w-3xl">
                             {START_SLOT_OFFSETS.map((_, pegIdx) => (
                               <span
                                 key={`start-${rowIdx}-${pegIdx}`}
@@ -427,7 +427,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                                 aria-hidden
                               />
                             ))}
-                          </div>
+                          </div> */}
                         </div>
                       );
                     }
@@ -468,9 +468,11 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                                 />
                               );
                             })}
-                            <div className="absolute left-0 top-0 text-[11px] uppercase tracking-wide text-slate-300">
-                              {player.name} • {scoreRangeStart}–{scoreRangeEnd}
-                            </div>
+                            { rowIdx % playerCount === 0  &&
+                              <div className="absolute left-0 top-0 text-[11px] uppercase tracking-wide text-slate-300">
+                                {scoreRangeStart}–{scoreRangeEnd}
+                              </div>
+                            }
                           </div>
                         </div>
                       );
