@@ -91,6 +91,8 @@ const LEFT_PADDING = 4;
 const RIGHT_PADDING = 4;
 const TOP_PADDING = 6;
 const BOTTOM_PADDING = 6;
+const ROW_GAP = 2;
+const MOBILE_BREAKPOINT = 640;
 
 function buildPlayers(count: PlayerCount): PlayerBase[] {
   return PLAYER_PRESETS.slice(0, count).map((preset, idx) => ({
@@ -129,19 +131,19 @@ function computePlayerStates(players: PlayerBase[], history: HistoryEntry[]): Pl
   });
 }
 
-const columnLeftPercent = (colIndex: number) => {
-  const clamped = Math.min(Math.max(colIndex, 0), LANE_COLUMNS - 1);
-  const usable = 100 - LEFT_PADDING - RIGHT_PADDING;
-  return LEFT_PADDING + (usable / Math.max(1, LANE_COLUMNS - 1)) * clamped;
+const axisPercent = (index: number, maxIndex: number, paddingStart: number, paddingEnd: number, gap = 0) => {
+  const clamped = Math.min(Math.max(index, 0), maxIndex);
+  const gapTotal = Math.max(0, maxIndex * gap);
+  const usable = Math.max(0, 100 - paddingStart - paddingEnd - gapTotal);
+  return paddingStart + clamped * gap + (clamped / Math.max(1, maxIndex || 1)) * usable;
 };
-
-const startSlotLeftPercent = (pegIdx: number) => 50 + (START_SLOT_OFFSETS[pegIdx] ?? 0);
 
 export function ScoreBoardTab({ onRegisterReset }: Props) {
   const [playerCount, setPlayerCount] = useState<PlayerCount>(2);
   const [players, setPlayers] = useState<PlayerBase[]>(() => buildPlayers(2));
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const hasHydrated = useRef(false);
+  const [isCompactBoard, setIsCompactBoard] = useState(false);
 
   const playerStates = useMemo(
     () => computePlayerStates(players, history),
@@ -153,13 +155,29 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     [playerStates.length],
   );
 
-  const rowTopPercent = useCallback(
-    (rowIndex: number) => {
-      const usable = 100 - TOP_PADDING - BOTTOM_PADDING;
-      const top = TOP_PADDING + (rowIndex / Math.max(1, totalLaneRows - 1)) * usable;
-      return Math.min(98, Math.max(2, top));
-    },
-    [totalLaneRows],
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const setFromMq = (matches: boolean) => setIsCompactBoard(matches);
+    setFromMq(mq.matches);
+    const handler = (event: MediaQueryListEvent) => setFromMq(event.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const lanePercent = useCallback(
+    (laneIndex: number) =>
+      isCompactBoard
+        ? axisPercent(laneIndex, totalLaneRows - 1, LEFT_PADDING, RIGHT_PADDING, ROW_GAP)
+        : axisPercent(laneIndex, totalLaneRows - 1, TOP_PADDING, BOTTOM_PADDING, ROW_GAP),
+    [isCompactBoard, totalLaneRows],
+  );
+
+  const scorePercent = useCallback(
+    (colIndex: number) =>
+      isCompactBoard
+        ? axisPercent(colIndex, LANE_COLUMNS - 1, TOP_PADDING, BOTTOM_PADDING)
+        : axisPercent(colIndex, LANE_COLUMNS - 1, LEFT_PADDING, RIGHT_PADDING),
+    [isCompactBoard],
   );
 
   const laneRows = useMemo(() => {
@@ -313,17 +331,18 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   };
 
   const percentPosition = (score: number, playerIdx: number, peg: "A" | "B") => {
+    const lanePos = lanePercent(laneRowIndex(playerIdx, score));
     if (score >= TOTAL_POINTS) {
-      return { left: 50, top: rowTopPercent(totalLaneRows - 1) };
+      return isCompactBoard ? { left: lanePos, top: 50 } : { left: 50, top: lanePos };
     }
-    const top = rowTopPercent(laneRowIndex(playerIdx, score));
     if (score <= 0) {
       const pegIdx = peg === "A" ? 0 : 1;
-      return { left: startSlotLeftPercent(pegIdx), top };
+      const startAxis = 50 + (START_SLOT_OFFSETS[pegIdx] ?? 0);
+      return isCompactBoard ? { left: lanePos, top: startAxis } : { left: startAxis, top: lanePos };
     }
     const withinSegment = (score - 1) % SEGMENT_SIZE;
-    const left = columnLeftPercent(withinSegment);
-    return { left, top };
+    const scorePos = scorePercent(withinSegment);
+    return isCompactBoard ? { left: lanePos, top: scorePos } : { left: scorePos, top: lanePos };
   };
 
   const totalTurns = history.length;
@@ -383,7 +402,9 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 </div>
               </div>
 
-              <div className="relative mx-auto h-[320px] w-full max-w-5xl overflow-hidden rounded-2xl border border-emerald-200/10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 shadow-inner shadow-black/60">
+              <div
+                className={`relative mx-auto ${isCompactBoard ? "h-[800px]" : "h-[400px]"} w-full max-w-5xl overflow-hidden rounded-2xl border border-emerald-200/10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 shadow-inner shadow-black/60`}
+              >
                 <div
                   className="absolute inset-0"
                   style={{
@@ -394,16 +415,22 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 />
                 <div className="absolute inset-0">
                   {laneRows.map((row, rowIdx) => {
-                    const top = rowTopPercent(rowIdx);
+                    const lanePos = lanePercent(rowIdx);
+                    const laneStyle = isCompactBoard
+                      ? { left: `${lanePos}%`, top: 0, bottom: 0, transform: "translateX(-50%)" }
+                      : { top: `${lanePos}%`, left: 0, right: 0, transform: "translateY(-50%)" };
+                    const laneContainerClass = isCompactBoard ? "absolute inset-y-0" : "absolute inset-x-0";
                     if (row.type === "finish") {
                       return (
                         <div
                           key={`row-${rowIdx}`}
-                          className="absolute left-0 right-0"
-                          style={{ top: `${top}%`, transform: "translateY(-50%)" }}
+                          className={laneContainerClass}
+                          style={laneStyle}
                         >
-                          <div className="relative mx-auto h-12 w-12 rounded-full border border-lime-300/50 bg-lime-300/20">
-                            <div className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border border-lime-300/70 bg-lime-300/40" />
+                          <div className="relative h-full w-full">
+                            <div className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-lime-300/50 bg-lime-300/20">
+                              <div className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border border-lime-300/70 bg-lime-300/40" />
+                            </div>
                           </div>
                         </div>
                       );
@@ -415,19 +442,27 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       return (
                         <div
                           key={`row-${rowIdx}`}
-                          className="absolute left-0 right-0"
-                          style={{ top: `${top}%`, transform: "translateY(-50%)" }}
+                          className={laneContainerClass}
+                          style={laneStyle}
                         >
-                          {/* <div className="relative mx-auto h-12 w-full max-w-3xl">
-                            {START_SLOT_OFFSETS.map((_, pegIdx) => (
-                              <span
-                                key={`start-${rowIdx}-${pegIdx}`}
-                            className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${preset?.pegClass ?? "border-white/20 bg-white/10"}`}
-                                style={{ left: `${startSlotLeftPercent(pegIdx)}%`, opacity: 0.2 }}
-                                aria-hidden
-                              />
-                            ))}
-                          </div> */}
+                          <div
+                            className={`relative mx-auto ${isCompactBoard ? "h-full w-12" : "h-12 w-full"} max-w-3xl`}
+                          >
+                            {START_SLOT_OFFSETS.map((_, pegIdx) => {
+                              const startAxis = 50 + (START_SLOT_OFFSETS[pegIdx] ?? 0);
+                              const style = isCompactBoard
+                                ? { top: `${startAxis}%`, left: "50%" }
+                                : { left: `${startAxis}%`, top: "50%" };
+                              return (
+                                <span
+                                  key={`start-${rowIdx}-${pegIdx}`}
+                                  className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${preset?.pegClass ?? "border-white/20 bg-white/10"}`}
+                                  style={{ ...style, opacity: 0.2 }}
+                                  aria-hidden
+                                />
+                              );
+                            })}
+                          </div>
                         </div>
                       );
                     }
@@ -443,36 +478,47 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       return (
                         <div
                           key={`row-${rowIdx}`}
-                          className="absolute left-0 right-0"
-                          style={{ top: `${top}%`, transform: "translateY(-50%)" }}
+                          className={laneContainerClass}
+                          style={laneStyle}
                         >
-                          <div className="relative mx-auto h-12 w-full max-w-5xl">
+                          <div
+                            className={`relative mx-auto ${isCompactBoard ? "h-full w-12" : "h-12 w-full"} max-w-5xl`}
+                          >
                             {dividers.map((divider) => (
                               <span
                                 key={`divider-${rowIdx}-${divider}`}
-                                className="absolute top-1 bottom-1 w-px bg-white/15"
-                                style={{ left: `${columnLeftPercent(divider - 0.5)}%` }}
+                                className={`absolute ${isCompactBoard ? "left-1 right-1 h-px" : "top-1 bottom-1 w-px"} bg-white/15`}
+                                style={{
+                                  ...(isCompactBoard
+                                    ? { top: `${scorePercent(divider - 0.5)}%` }
+                                    : { left: `${scorePercent(divider - 0.5)}%` }),
+                                }}
                                 aria-hidden
                               />
                             ))}
                             {Array.from({ length: LANE_COLUMNS }, (_, colIdx) => {
-                              const left = columnLeftPercent(colIdx);
+                              const pos = scorePercent(colIdx);
                               const scoreLabel = scoreRangeStart + colIdx;
                               return (
                                 <span
                                   key={`hole-${rowIdx}-${colIdx}`}
                                   title={`${player.name} score ${scoreLabel}`}
-                                  className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-sm ${preset?.trailClass ?? "border-white/20 bg-white/10"}`}
-                                  style={{ left: `${left}%`, opacity: 0.2 }}
+                                  className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-sm ${preset?.trailClass ?? "border-white/20 bg-white/10"}`}
+                                  style={{
+                                    ...(isCompactBoard
+                                      ? { top: `${pos}%`, left: "50%" }
+                                      : { left: `${pos}%`, top: "50%" }),
+                                    opacity: 0.2,
+                                  }}
                                   aria-hidden
                                 />
                               );
                             })}
-                            { rowIdx % playerCount === 0  &&
+                            {rowIdx % playerCount === 0 && (
                               <div className="absolute left-0 top-0 text-[11px] uppercase tracking-wide text-slate-300">
                                 {scoreRangeStart}–{scoreRangeEnd}
                               </div>
-                            }
+                            )}
                           </div>
                         </div>
                       );
@@ -481,20 +527,20 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   })}
                 </div>
                 <div
-                  className="absolute rounded-full bg-slate-800/80 px-2 py-1 text-[11px] font-semibold text-slate-200"
+                  className="opacity-0 absolute rounded-full bg-slate-800/80 px-2 py-1 text-[11px] font-semibold text-slate-200"
                   style={{
-                    left: "50%",
-                    top: `${Math.max(2, rowTopPercent(0) - 5)}%`,
+                    left: isCompactBoard ? `${Math.max(2, lanePercent(0) - 5)}%` : "50%",
+                    top: isCompactBoard ? "6%" : `${Math.max(2, lanePercent(0) - 5)}%`,
                     transform: "translateX(-50%)",
                   }}
                 >
                   Start
                 </div>
                 <div
-                  className="absolute rounded-full bg-lime-400/20 px-2 py-1 text-[11px] font-semibold text-lime-100 ring-1 ring-lime-200/50"
+                  className="absolute rounded-full px-2 py-1 text-[11px] font-semibold text-lime-100"
                   style={{
                     left: "50%",
-                    top: `${Math.min(98, rowTopPercent(totalLaneRows - 1) + 4)}%`,
+                    bottom: "6%",
                     transform: "translateX(-50%)",
                   }}
                 >
@@ -632,7 +678,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                             {entry.playerName}
                           </div>
                           <div className="text-xs text-slate-300">
-                            {entry.before} → {entry.after} • {formatTime(entry.timestamp)}
+                            {entry.before} → {entry.after}
                           </div>
                         </div>
                       </div>
