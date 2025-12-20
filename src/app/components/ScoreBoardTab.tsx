@@ -82,9 +82,15 @@ const PLAYER_PRESETS: PlayerPreset[] = [
 ];
 
 const TOTAL_POINTS = 121;
-const FINISH_INDEX = TOTAL_POINTS - 1;
-const BOARD_COLUMNS = 30;
 const SCORE_CHOICES = Array.from({ length: 29 }, (_, idx) => idx + 1);
+const LANE_COLUMNS = 40;
+const SEGMENT_SIZE = 40;
+const SEGMENT_COUNT = 3;
+const START_SLOT_OFFSETS = [-8, 8];
+const LEFT_PADDING = 4;
+const RIGHT_PADDING = 4;
+const TOP_PADDING = 6;
+const BOTTOM_PADDING = 6;
 
 function buildPlayers(count: PlayerCount): PlayerBase[] {
   return PLAYER_PRESETS.slice(0, count).map((preset, idx) => ({
@@ -123,24 +129,13 @@ function computePlayerStates(players: PlayerBase[], history: HistoryEntry[]): Pl
   });
 }
 
-type BoardPosition = { row: number; col: number };
+const columnLeftPercent = (colIndex: number) => {
+  const clamped = Math.min(Math.max(colIndex, 0), LANE_COLUMNS - 1);
+  const usable = 100 - LEFT_PADDING - RIGHT_PADDING;
+  return LEFT_PADDING + (usable / Math.max(1, LANE_COLUMNS - 1)) * clamped;
+};
 
-function buildTrackPositions(): BoardPosition[] {
-  const positions: BoardPosition[] = [];
-
-  for (let idx = 0; idx < TOTAL_POINTS; idx += 1) {
-    if (idx === FINISH_INDEX) {
-      positions.push({ row: 4, col: 14 });
-      continue;
-    }
-    const row = Math.floor(idx / BOARD_COLUMNS);
-    const offset = idx % BOARD_COLUMNS;
-    const col = row % 2 === 0 ? offset : BOARD_COLUMNS - 1 - offset;
-    positions.push({ row, col });
-  }
-
-  return positions;
-}
+const startSlotLeftPercent = (pegIdx: number) => 50 + (START_SLOT_OFFSETS[pegIdx] ?? 0);
 
 export function ScoreBoardTab({ onRegisterReset }: Props) {
   const [playerCount, setPlayerCount] = useState<PlayerCount>(2);
@@ -148,16 +143,38 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const hasHydrated = useRef(false);
 
-  const trackPositions = useMemo(() => buildTrackPositions(), []);
-  const rowCount = useMemo(
-    () => Math.max(...trackPositions.map((pos) => pos.row)) + 1,
-    [trackPositions],
-  );
-
   const playerStates = useMemo(
     () => computePlayerStates(players, history),
     [players, history],
   );
+
+  const totalLaneRows = useMemo(
+    () => playerStates.length * (SEGMENT_COUNT + 1) + 1,
+    [playerStates.length],
+  );
+
+  const rowTopPercent = useCallback(
+    (rowIndex: number) => {
+      const usable = 100 - TOP_PADDING - BOTTOM_PADDING;
+      const top = TOP_PADDING + (rowIndex / Math.max(1, totalLaneRows - 1)) * usable;
+      return Math.min(98, Math.max(2, top));
+    },
+    [totalLaneRows],
+  );
+
+  const laneRows = useMemo(() => {
+    const rows: { type: "start" | "segment" | "finish"; playerIndex?: number; segment?: number }[] = [];
+    for (let pIdx = 0; pIdx < playerStates.length; pIdx += 1) {
+      rows.push({ type: "start", playerIndex: pIdx });
+    }
+    for (let segment = 0; segment < SEGMENT_COUNT; segment += 1) {
+      for (let pIdx = 0; pIdx < playerStates.length; pIdx += 1) {
+        rows.push({ type: "segment", playerIndex: pIdx, segment });
+      }
+    }
+    rows.push({ type: "finish" });
+    return rows;
+  }, [playerStates.length]);
 
   const presetLookup = useMemo(
     () =>
@@ -288,17 +305,24 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     setHistory((prev) => prev.slice(0, -1));
   };
 
-  const holePosition = (score: number) => {
-    const idx = Math.min(Math.max(score, 0), FINISH_INDEX);
-    return trackPositions[idx] ?? trackPositions[trackPositions.length - 1];
+  const laneRowIndex = (playerIdx: number, score: number) => {
+    if (score <= 0) return playerIdx;
+    if (score >= TOTAL_POINTS) return totalLaneRows - 1;
+    const segment = Math.floor((score - 1) / SEGMENT_SIZE);
+    return playerStates.length + segment * playerStates.length + playerIdx;
   };
 
-  const percentPosition = (score: number) => {
-    const { row, col } = holePosition(score);
-    const rawLeft = (col / (BOARD_COLUMNS - 1)) * 100;
-    const rawTop = (row / (rowCount - 1)) * 100;
-    const left = Math.min(98, Math.max(2, rawLeft));
-    const top = Math.min(98, Math.max(2, rawTop));
+  const percentPosition = (score: number, playerIdx: number, peg: "A" | "B") => {
+    if (score >= TOTAL_POINTS) {
+      return { left: 50, top: rowTopPercent(totalLaneRows - 1) };
+    }
+    const top = rowTopPercent(laneRowIndex(playerIdx, score));
+    if (score <= 0) {
+      const pegIdx = peg === "A" ? 0 : 1;
+      return { left: startSlotLeftPercent(pegIdx), top };
+    }
+    const withinSegment = (score - 1) % SEGMENT_SIZE;
+    const left = columnLeftPercent(withinSegment);
     return { left, top };
   };
 
@@ -369,40 +393,118 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   aria-hidden
                 />
                 <div className="absolute inset-0">
-                  {trackPositions.map((pos, idx) => {
-                    const { left, top } = percentPosition(idx);
-                    const isFinish = idx === FINISH_INDEX;
-                    const highlight = idx % 5 === 0 || isFinish;
-                    return (
-                      <div
-                        key={idx}
-                        className="absolute"
-                        style={{ left: `${left}%`, top: `${top}%` }}
-                      >
+                  {laneRows.map((row, rowIdx) => {
+                    const top = rowTopPercent(rowIdx);
+                    if (row.type === "finish") {
+                      return (
                         <div
-                          className={`h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border ${
-                            isFinish
-                              ? "h-5 w-5 border-lime-300/70 bg-lime-300/30"
-                              : highlight
-                                ? "border-white/40 bg-white/20"
-                                : "border-white/20 bg-white/10"
-                          }`}
-                        />
-                      </div>
-                    );
+                          key={`row-${rowIdx}`}
+                          className="absolute left-0 right-0"
+                          style={{ top: `${top}%`, transform: "translateY(-50%)" }}
+                        >
+                          <div className="relative mx-auto h-12 w-12 rounded-full border border-lime-300/50 bg-lime-300/20">
+                            <div className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border border-lime-300/70 bg-lime-300/40" />
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const player = row.playerIndex != null ? playerStates[row.playerIndex] : null;
+                    const preset = player?.preset;
+                    if (row.type === "start" && player) {
+                      return (
+                        <div
+                          key={`row-${rowIdx}`}
+                          className="absolute left-0 right-0"
+                          style={{ top: `${top}%`, transform: "translateY(-50%)" }}
+                        >
+                          <div className="relative mx-auto h-12 w-full max-w-3xl">
+                            {START_SLOT_OFFSETS.map((_, pegIdx) => (
+                              <span
+                                key={`start-${rowIdx}-${pegIdx}`}
+                                className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${preset?.pegClass ?? "border-white/20 bg-white/10"}`}
+                                style={{ left: `${startSlotLeftPercent(pegIdx)}%` }}
+                                aria-hidden
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (row.type === "segment" && player && row.segment !== undefined) {
+                      const dividers = Array.from(
+                        { length: LANE_COLUMNS / 5 - 1 },
+                        (_, groupIdx) => (groupIdx + 1) * 5,
+                      );
+                      const scoreRangeStart = row.segment * SEGMENT_SIZE + 1;
+                      const scoreRangeEnd = scoreRangeStart + SEGMENT_SIZE - 1;
+
+                      return (
+                        <div
+                          key={`row-${rowIdx}`}
+                          className="absolute left-0 right-0"
+                          style={{ top: `${top}%`, transform: "translateY(-50%)" }}
+                        >
+                          <div className="relative mx-auto h-12 w-full max-w-5xl">
+                            {dividers.map((divider) => (
+                              <span
+                                key={`divider-${rowIdx}-${divider}`}
+                                className="absolute top-1 bottom-1 w-px bg-white/15"
+                                style={{ left: `${columnLeftPercent(divider - 0.5)}%` }}
+                                aria-hidden
+                              />
+                            ))}
+                            {Array.from({ length: LANE_COLUMNS }, (_, colIdx) => {
+                              const left = columnLeftPercent(colIdx);
+                              const scoreLabel = scoreRangeStart + colIdx;
+                              return (
+                                <span
+                                  key={`hole-${rowIdx}-${colIdx}`}
+                                  title={`${player.name} score ${scoreLabel}`}
+                                  className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-sm ${preset?.trailClass ?? "border-white/20 bg-white/10"}`}
+                                  style={{ left: `${left}%` }}
+                                  aria-hidden
+                                />
+                              );
+                            })}
+                            <div className="absolute left-0 top-0 text-[11px] uppercase tracking-wide text-slate-300">
+                              {player.name} • {scoreRangeStart}–{scoreRangeEnd}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
                   })}
                 </div>
-                <div className="absolute left-4 top-4 rounded-full bg-slate-800/70 px-2 py-1 text-[11px] font-semibold text-slate-200">
+                <div
+                  className="absolute rounded-full bg-slate-800/80 px-2 py-1 text-[11px] font-semibold text-slate-200"
+                  style={{
+                    left: "50%",
+                    top: `${Math.max(2, rowTopPercent(0) - 5)}%`,
+                    transform: "translateX(-50%)",
+                  }}
+                >
                   Start
                 </div>
-                <div className="absolute right-4 bottom-4 rounded-full bg-lime-400/20 px-2 py-1 text-[11px] font-semibold text-lime-100 ring-1 ring-lime-200/50">
+                <div
+                  className="absolute rounded-full bg-lime-400/20 px-2 py-1 text-[11px] font-semibold text-lime-100 ring-1 ring-lime-200/50"
+                  style={{
+                    left: "50%",
+                    top: `${Math.min(98, rowTopPercent(totalLaneRows - 1) + 4)}%`,
+                    transform: "translateX(-50%)",
+                  }}
+                >
                   Finish
                 </div>
 
                 {playerStates.map((player, idx) => {
-                  const pegAPos = percentPosition(player.pegA);
-                  const pegBPos = percentPosition(player.pegB);
-                  const offset = (idx - (playerStates.length - 1) / 2) * 10;
+                  const pegAPos = percentPosition(player.pegA, idx, "A");
+                  const pegBPos = percentPosition(player.pegB, idx, "B");
+                  const finishPeg = player.current >= TOTAL_POINTS;
+                  const pegAOffset = finishPeg ? { x: 0, y: 0 } : { x: 0, y: 0 };
+                  const pegBOffset = finishPeg ? { x: 0, y: 0 } : { x: 0, y: 0 };
                   return (
                     <div key={player.id}>
                       <div
@@ -415,7 +517,9 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       >
                         <div
                           className={`h-4 w-4 rounded-full border-2 ${player.preset.pegClass} ${player.preset.glowClass}`}
-                          style={{ transform: `translate(-50%, -50%) translateX(${offset}px)` }}
+                          style={{
+                            transform: `translate(-50%, -50%) translateX(${pegAOffset.x}px) translateY(${pegAOffset.y}px)`,
+                          }}
                           title={`${player.name} peg A`}
                         />
                       </div>
@@ -429,7 +533,9 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       >
                         <div
                           className={`h-3.5 w-3.5 rounded-full border-2 opacity-80 ${player.preset.trailClass}`}
-                          style={{ transform: `translate(-50%, -50%) translateX(${offset - 6}px)` }}
+                          style={{
+                            transform: `translate(-50%, -50%) translateX(${pegBOffset.x - 4}px) translateY(${pegBOffset.y + 3}px)`,
+                          }}
                           title={`${player.name} peg B`}
                         />
                       </div>
