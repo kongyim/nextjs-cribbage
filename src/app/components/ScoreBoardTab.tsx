@@ -666,7 +666,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   return (
                     <li
                       key={entry.id}
-                      className={`flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 ring-1 ${preset?.ringClass ?? "ring-white/5"}`}
+                      className={`flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 ring-1 ring-inset ${preset?.ringClass ?? "ring-white/5"}`}
                     >
                       <div className="flex items-center gap-3">
                         <span
