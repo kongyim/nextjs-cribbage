@@ -578,8 +578,8 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.6fr,0.9fr]">
-            <div className="rounded-xl border border-white/10 bg-black/30 p-3 lg:order-1">
+          <div className="mt-4 flex gap-4">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3 lg:order-1 w-full">
               {players.map((player) => (
                 <div key={`bar-${player.id}`} className="mb-3 last:mb-0">
                   <div className="flex items-center justify-between text-xs text-slate-300">
@@ -604,10 +604,6 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               ))}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner lg:order-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-lg font-semibold text-white">History</h4>
-                <span className="text-xs text-slate-300">{history.length} moves</span>
-              </div>
               <div className="mt-3 flex items-center gap-2">
                 <button
                   type="button"
@@ -625,6 +621,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 >
                   Redo
                 </button>
+                <span className="text-xs text-slate-300 whitespace-nowrap">{history.length} moves</span>
               </div>
               {history.length === 0 ? (
                 <p className="mt-3 text-sm text-slate-300">No moves yet.</p>
@@ -643,7 +640,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       >
                         <div>
                           <div className="font-semibold">{entry.playerName}</div>
-                          <div className="text-xs text-slate-300">
+                          <div className="text-xs text-slate-300 whitespace-nowrap">
                             +{entry.scoreToAdd} • {entry.oldScore} → {entry.newScore} •{" "}
                             {formatSecondsAgo(entry.timestamp)}
                           </div>
@@ -682,7 +679,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   onChange={(event) => handleNameChange(player.id, event.target.value)}
                   className="w-full bg-transparent text-lg font-semibold text-white outline-none"
                 />
-                <div className="ml-3 text-sm text-slate-300">{player.score} pts</div>
+                <div className="ml-3 text-sm text-slate-300 whitespace-nowrap">{player.score} pts</div>
               </div>
               <div className="mt-3 grid grid-cols-6 gap-2">
                 {SCORE_BUTTONS.map((value) => (
