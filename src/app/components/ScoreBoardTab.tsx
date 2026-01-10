@@ -182,8 +182,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const [boardSkin, setBoardSkin] = useState<BoardSkin>("clear");
   const [showHistory, setShowHistory] = useState(true);
   const [draggingPlayer, setDraggingPlayer] = useState<PlayerId | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isCompact, setIsCompact] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const currentIndexRef = useRef(currentIndex);
   const hasHydrated = useRef(false);
@@ -208,6 +207,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   );
 
   const activePlayerCount = playerCount === 3 ? 3 : 2;
+  const isFull = isCompact;
   const winner = players.find((player) => player.score >= TOTAL_POINTS) ?? null;
 
   useEffect(() => {
@@ -234,10 +234,11 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   }, []);
 
   useEffect(() => {
-    const handleFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
-    document.addEventListener("fullscreenchange", handleFullscreen);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreen);
-  }, []);
+    document.body.classList.toggle("board-compact", isCompact);
+    return () => {
+      document.body.classList.remove("board-compact");
+    };
+  }, [isCompact]);
 
   useEffect(() => {
     let isActive = true;
@@ -634,12 +635,8 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     setPlayers(nextPlayers);
   };
 
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
+  const toggleCompact = useCallback(() => {
+    setIsCompact((prev) => !prev);
   }, []);
 
   const renderDots = (player: PlayerState) => {
@@ -684,11 +681,8 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={isFullscreen ? "p-3" : "p-0"}
-    >
-      {!isFullscreen ? (
+    <div className={isFull ? "p-2" : "p-0"}>
+      {!isFull ? (
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="text-2xl font-semibold text-white">Online Cribbage Board</h2>
@@ -709,7 +703,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
         </div>
       ) : null}
 
-      {!isFullscreen ? (
+      {!isFull ? (
         <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
           <span className="font-semibold text-emerald-300">Undo/Redo:</span> Use the buttons in the
           history panel.
@@ -718,10 +712,10 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
         </div>
       ) : null}
 
-      <div className={isFullscreen ? "mt-3 space-y-3" : "mt-5 space-y-5"}>
-        <div className={isFullscreen ? "flex gap-3" : "flex gap-2"}>
+      <div className={isFull ? "mt-0 space-y-3" : "mt-5 space-y-5"}>
+        <div className={isFull ? "flex gap-3" : "flex gap-2"}>
           <div className="flex flex-col grow gap-2">
-            <div className={`rounded-2xl border border-white/10 bg-white/5 shadow-inner ${isFullscreen ? "p-3" : "p-4"}`}>
+            <div className={`rounded-2xl border border-white/10 bg-white/5 shadow-inner ${isFull ? "p-3" : "p-4"}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Board</p>
@@ -736,10 +730,10 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={toggleFullscreen}
+                    onClick={toggleCompact}
                     className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20"
                   >
-                    {isFullscreen ? "Exit full" : "Fullscreen"}
+                    {isFull ? "Comfort view" : "Compact"}
                   </button>
                   <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white">
                     <button
@@ -760,7 +754,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 </div>
               </div>
 
-              <div className={isFullscreen ? "mt-3 flex gap-2" : "mt-4 flex gap-2"}>
+              <div className={isFull ? "mt-3 flex gap-2" : "mt-4 flex gap-2"}>
                 <div className="rounded-xl border border-white/10 bg-black/30 p-3 lg:order-1 w-full">
                   {players.map((player) => (
                     <div key={`bar-${player.id}`} className="mb-3 last:mb-0">
@@ -789,7 +783,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
             </div>
 
             <div
-              className={`grid ${isFullscreen ? "gap-2" : "gap-4"} ${
+              className={`grid ${isFull ? "gap-2" : "gap-4"} ${
                 activePlayerCount === 2 ? "grid-cols-2" : "grid-cols-3"
               }`}
             >
@@ -797,7 +791,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 <div
                   key={`${player.id}-controls`}
                   className={`rounded-xl border border-white/10 bg-white/5 shadow-inner ${COLOR_STYLES[player.color].border} ${
-                    isFullscreen ? "p-3" : "p-4"
+                    isFull ? "p-3" : "p-4"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -813,7 +807,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       {player.score} pts
                     </div>
                   </div>
-                  <div className={isFullscreen ? "mt-2 grid grid-cols-6 gap-1" : "mt-3 grid grid-cols-6 gap-1"}>
+                  <div className={isFull ? "mt-2 grid grid-cols-6 gap-1" : "mt-3 grid grid-cols-6 gap-1"}>
                     {SCORE_BUTTONS.map((value) => (
                       <button
                         type="button"
@@ -828,7 +822,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       </button>
                     ))}
                   </div>
-                  <div className={isFullscreen ? "mt-2 flex items-center gap-2" : "mt-3 flex items-center gap-2"}>
+                  <div className={isFull ? "mt-2 flex items-center gap-2" : "mt-3 flex items-center gap-2"}>
                     <div className="flex items-center gap-1">
                       {COLOR_OPTIONS.map((color) => {
                         const isTaken = players.some(
@@ -863,7 +857,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
 
           {showHistory ? (
             <div className={`rounded-xl border border-white/10 bg-white/5 shadow-inner ${
-              isFullscreen ? "p-3" : "p-4"
+              isFull ? "p-3" : "p-4"
             }`}>
               <div className="flex items-center gap-2">
                 <button
@@ -887,11 +881,11 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 </span>
               </div>
               {history.length === 0 ? (
-                <p className={`${isFullscreen ? "mt-2" : "mt-3"} text-sm text-slate-300`}>
+                <p className={`${isFull ? "mt-2" : "mt-3"} text-sm text-slate-300`}>
                   No moves yet.
                 </p>
               ) : (
-                <ul className={`${isFullscreen ? "mt-2" : "mt-3"} max-h-full space-y-2 overflow-y-auto pr-1`}>
+                <ul className={`${isFull ? "mt-2" : "mt-3"} max-h-full space-y-2 overflow-y-auto pr-1`}>
                   {[...history].reverse().map((entry, idx) => {
                     const actualIndex = history.length - 1 - idx;
                     const isUndone = actualIndex > currentIndex;
@@ -947,6 +941,14 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
             document.body,
           )
         : null}
+      <style jsx global>{`
+        body.board-compact header {
+          display: none;
+        }
+        body.board-compact .max-w-6xl {
+          padding: 0;
+        }
+      `}</style>
     </div>
   );
 }
