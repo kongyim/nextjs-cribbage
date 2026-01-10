@@ -831,14 +831,14 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                       {player.score} pts
                     </div>
                   </div>
-                  <div className={isFull ? "mt-2 grid grid-cols-6 gap-1" : "mt-3 grid grid-cols-6 gap-1"}>
+                  <div className={isFull ? "mt-2 grid grid-cols-5 gap-1" : "mt-3 grid grid-cols-5 gap-1"}>
                     {SCORE_BUTTONS.map((value) => (
                       <button
                         type="button"
                         key={`${player.id}-score-${value}`}
                         onClick={() => addScore(player.id, value)}
                         disabled={!!winner}
-                      className={`rounded-lg border border-white/10 px-1 py-1 text-xs font-semibold text-white ${
+                      className={`rounded-lg border border-white/10 px-1 py-3 text-xs font-semibold text-white ${
                         COLOR_STYLES[player.color].button
                       } disabled:cursor-not-allowed disabled:opacity-50`}
                       >
