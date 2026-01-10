@@ -2,43 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type PlayerCount = 2 | 3;
+type PlayerId = "p1" | "p2" | "p3";
 
-type PlayerPreset = {
-  id: string;
-  defaultName: string;
-  pegClass: string;
-  trailClass: string;
-  badgeClass: string;
-  glowClass: string;
-  textClass: string;
-  ringClass: string;
-};
-
-type PlayerBase = {
-  id: string;
+type PlayerState = {
+  id: PlayerId;
   name: string;
-  preset: PlayerPreset;
-};
-
-type PlayerState = PlayerBase & {
-  current: number;
-  previous: number;
-  moves: number;
-  maxJump: number;
-  totalAdded: number;
-  trail: number;
-  pegA: number;
-  pegB: number;
+  score: number;
+  backPegScore: number;
 };
 
 type HistoryEntry = {
   id: string;
-  playerId: string;
+  playerId: PlayerId;
   playerName: string;
-  amount: number;
-  before: number;
-  after: number;
+  scoreToAdd: number;
+  oldScore: number;
+  oldBackPegScore: number;
+  newScore: number;
   timestamp: number;
 };
 
@@ -46,225 +26,384 @@ type Props = {
   onRegisterReset: (fn: () => void) => void;
 };
 
-const STORAGE_KEY = "cribbage-board-state";
+type BoardSkin = "clear" | "classic" | "bar";
 
-const PLAYER_PRESETS: PlayerPreset[] = [
-  {
-    id: "p1",
-    defaultName: "Player 1",
-    pegClass: "bg-rose-700 border-rose-500",
-    trailClass: "bg-rose-700 border-rose-500",
-    badgeClass: "bg-rose-500/15 border-rose-400/30 text-rose-50",
-    glowClass: "shadow-rose-500/40",
-    textClass: "text-rose-100",
-    ringClass: "ring-rose-300/60",
-  },
-  {
-    id: "p2",
-    defaultName: "Player 2",
-    pegClass: "bg-sky-700 border-sky-500",
-    trailClass: "bg-sky-700 border-sky-500",
-    badgeClass: "bg-sky-500/15 border-sky-400/30 text-sky-50",
-    glowClass: "shadow-sky-500/40",
-    textClass: "text-sky-100",
-    ringClass: "ring-sky-300/60",
-  },
-  {
-    id: "p3",
-    defaultName: "Player 3",
-    pegClass: "bg-emerald-700 border-emerald-500",
-    trailClass: "bg-emerald-700 border-emerald-500",
-    badgeClass: "bg-emerald-500/15 border-emerald-400/40 text-emerald-50",
-    glowClass: "shadow-emerald-500/40",
-    textClass: "text-emerald-100",
-    ringClass: "ring-emerald-300/60",
-  },
-];
+type StoredState = {
+  players: PlayerState[];
+  history: HistoryEntry[];
+  currentIndex: number;
+  boardSkin: BoardSkin;
+};
 
 const TOTAL_POINTS = 121;
-const SCORE_CHOICES = Array.from({ length: 29 }, (_, idx) => idx + 1);
-const LANE_COLUMNS = 40;
-const SEGMENT_SIZE = 40;
-const SEGMENT_COUNT = 3;
-const START_SLOT_OFFSETS = [-8, 8];
-const LEFT_PADDING = 4;
-const RIGHT_PADDING = 4;
-const TOP_PADDING = 6;
-const BOTTOM_PADDING = 6;
-const ROW_GAP = 2;
-const MOBILE_BREAKPOINT = 640;
+const STORAGE_KEY = "cribbage-board-state";
+const SCORE_BUTTONS = [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  20,
+  21,
+  22,
+  23,
+  24,
+  28,
+  29,
+];
+const BOARD_SKINS: BoardSkin[] = ["clear", "classic", "bar"];
 
-function buildPlayers(count: PlayerCount): PlayerBase[] {
-  return PLAYER_PRESETS.slice(0, count).map((preset, idx) => ({
-    id: preset.id,
-    name: preset.defaultName.replace(/\d/, `${idx + 1}`),
-    preset,
-  }));
-}
+const PLAYER_STYLES: Record<
+  PlayerId,
+  { peg: string; text: string; border: string; button: string; historyBg: string }
+> = {
+  p1: {
+    peg: "bg-emerald-400",
+    text: "text-emerald-200",
+    border: "border-emerald-400/40",
+    button: "bg-emerald-500/20 hover:bg-emerald-500/30",
+    historyBg: "bg-emerald-500/10",
+  },
+  p2: {
+    peg: "bg-sky-400",
+    text: "text-sky-200",
+    border: "border-sky-400/40",
+    button: "bg-sky-500/20 hover:bg-sky-500/30",
+    historyBg: "bg-sky-500/10",
+  },
+  p3: {
+    peg: "bg-amber-400",
+    text: "text-amber-200",
+    border: "border-amber-400/40",
+    button: "bg-amber-500/20 hover:bg-amber-500/30",
+    historyBg: "bg-amber-500/10",
+  },
+};
 
-function computePlayerStates(players: PlayerBase[], history: HistoryEntry[]): PlayerState[] {
-  return players.map((player) => {
-    const entries = history.filter((entry) => entry.playerId === player.id);
-    const lastEntry = entries[entries.length - 1];
-    const moves = entries.length;
-    const maxJump = entries.length ? Math.max(...entries.map((e) => e.amount)) : 0;
-    const totalAdded = entries.reduce((sum, entry) => sum + entry.amount, 0);
-    const previousAfter =
-      entries.length >= 2 ? entries[entries.length - 2].after : 0;
-    const leadIsPegA = moves % 2 === 0;
-    const leadScore = lastEntry ? lastEntry.after : 0;
-    const trailScore = lastEntry ? previousAfter : 0;
-    const pegA = leadIsPegA ? leadScore : trailScore;
-    const pegB = leadIsPegA ? trailScore : leadScore;
+const createInitialPlayers = (): PlayerState[] => [
+  { id: "p1", name: "Player One", score: 0, backPegScore: -1 },
+  { id: "p2", name: "Player Two", score: 0, backPegScore: -1 },
+  { id: "p3", name: "Player Three", score: 0, backPegScore: -1 },
+];
 
-    return {
-      ...player,
-      current: lastEntry ? lastEntry.after : 0,
-      previous: previousAfter,
-      trail: trailScore,
-      pegA,
-      pegB,
-      moves,
-      maxJump,
-      totalAdded,
-    };
-  });
-}
+const createInitialState = (): StoredState => ({
+  players: createInitialPlayers(),
+  history: [],
+  currentIndex: -1,
+  boardSkin: "clear",
+});
 
-const axisPercent = (index: number, maxIndex: number, paddingStart: number, paddingEnd: number, gap = 0) => {
-  const clamped = Math.min(Math.max(index, 0), maxIndex);
-  const gapTotal = Math.max(0, maxIndex * gap);
-  const usable = Math.max(0, 100 - paddingStart - paddingEnd - gapTotal);
-  return paddingStart + clamped * gap + (clamped / Math.max(1, maxIndex || 1)) * usable;
+const clampScore = (score: number) => Math.min(Math.max(score, -1), TOTAL_POINTS);
+const BOARD_ROWS = 3;
+const HOLES_PER_ROW = 40;
+const BOARD_PADDING_X = 6;
+const BOARD_PADDING_Y = 12;
+const START_SLOT_X = 4;
+const START_SLOT_OFFSETS = [-5, 5];
+const PEG_OFFSET = 2.5;
+
+const clampPercent = (value: number) => Math.min(Math.max(value, 2), 98);
+
+const rowToPercent = (row: number) =>
+  BOARD_PADDING_Y + (row * (100 - 2 * BOARD_PADDING_Y)) / (BOARD_ROWS - 1);
+
+const colToPercent = (col: number) =>
+  BOARD_PADDING_X + (col * (100 - 2 * BOARD_PADDING_X)) / (HOLES_PER_ROW - 1);
+
+const getScorePosition = (score: number, offset = 0) => {
+  if (score <= 0) {
+    const offsetIndex = score <= -1 ? 0 : 1;
+    const y = rowToPercent(0) + START_SLOT_OFFSETS[offsetIndex] + offset;
+    return { left: START_SLOT_X, top: clampPercent(y) };
+  }
+
+  const bounded = Math.min(score, TOTAL_POINTS);
+  if (bounded >= TOTAL_POINTS) {
+    const x = colToPercent(HOLES_PER_ROW - 1) + 2;
+    const y = rowToPercent(BOARD_ROWS - 1) + offset;
+    return { left: clampPercent(x), top: clampPercent(y) };
+  }
+
+  const index = bounded - 1;
+  const row = Math.floor(index / HOLES_PER_ROW);
+  const baseCol = index % HOLES_PER_ROW;
+  const col = row % 2 === 1 ? HOLES_PER_ROW - 1 - baseCol : baseCol;
+  const x = colToPercent(col);
+  const y = rowToPercent(row) + offset;
+  return { left: clampPercent(x), top: clampPercent(y) };
 };
 
 export function ScoreBoardTab({ onRegisterReset }: Props) {
-  const [playerCount, setPlayerCount] = useState<PlayerCount>(2);
-  const [players, setPlayers] = useState<PlayerBase[]>(() => buildPlayers(2));
+  const [players, setPlayers] = useState<PlayerState[]>(() => createInitialPlayers());
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [boardSkin, setBoardSkin] = useState<BoardSkin>("clear");
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [draggingPlayer, setDraggingPlayer] = useState<PlayerId | null>(null);
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const currentIndexRef = useRef(currentIndex);
   const hasHydrated = useRef(false);
-  const [isCompactBoard, setIsCompactBoard] = useState(false);
+  const historyRef = useRef(history);
+  const playersRef = useRef(players);
+  const lastActionRef = useRef<"add" | "remove" | null>(null);
+  const removedEntriesRef = useRef<{ entry: HistoryEntry; index: number; prevIndex: number }[]>(
+    [],
+  );
+  const [removedCount, setRemovedCount] = useState(0);
 
-  const playerStates = useMemo(
-    () => computePlayerStates(players, history),
-    [players, history],
+  const boardSlots = useMemo(
+    () => [-1, ...Array.from({ length: TOTAL_POINTS + 1 }, (_, i) => i)],
+    [],
+  );
+  const scorePositions = useMemo(
+    () => boardSlots.map((score) => ({ score, pos: getScorePosition(score) })),
+    [boardSlots],
   );
 
-  const totalLaneRows = useMemo(
-    () => playerStates.length * (SEGMENT_COUNT + 1) + 1,
-    [playerStates.length],
-  );
+  const winner = players.find((player) => player.score >= TOTAL_POINTS) ?? null;
 
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
-    const setFromMq = (matches: boolean) => setIsCompactBoard(matches);
-    setFromMq(mq.matches);
-    const handler = (event: MediaQueryListEvent) => setFromMq(event.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
+
+  const buildPlayersFromHistory = useCallback(
+    (entries: HistoryEntry[], index: number, basePlayers: PlayerState[]) => {
+      const map = new Map<PlayerId, PlayerState>();
+      basePlayers.forEach((player) => {
+        map.set(player.id, { ...player, score: 0, backPegScore: -1 });
+      });
+      for (let i = 0; i <= index; i += 1) {
+        const entry = entries[i];
+        if (!entry) continue;
+        const player = map.get(entry.playerId);
+        if (!player) continue;
+        player.backPegScore = entry.oldScore;
+        player.score = entry.newScore;
+      }
+      return Array.from(map.values());
+    },
+    [],
+  );
+
+  const addScore = useCallback(
+    (playerId: PlayerId, points: number) => {
+      if (points <= 0) return;
+
+      const prevPlayers = playersRef.current;
+      const winnerNow = prevPlayers.find((player) => player.score >= TOTAL_POINTS);
+      if (winnerNow) return;
+      const target = prevPlayers.find((player) => player.id === playerId);
+      if (!target) return;
+
+      const rawScore = target.score + points;
+      let newScore = Math.min(TOTAL_POINTS, rawScore);
+      const otherHasWon = prevPlayers.some(
+        (player) => player.id !== playerId && player.score === TOTAL_POINTS,
+      );
+      if (newScore === TOTAL_POINTS && otherHasWon) {
+        newScore = TOTAL_POINTS - 1;
+      }
+
+      const entry: HistoryEntry = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        playerId,
+        playerName: target.name,
+        scoreToAdd: points,
+        oldScore: target.score,
+        oldBackPegScore: target.backPegScore,
+        newScore,
+        timestamp: Date.now(),
+      };
+
+      lastActionRef.current = "add";
+      setHistory((prevHistory) => {
+        const trimmed = prevHistory.slice(0, currentIndexRef.current + 1);
+        return [...trimmed, entry];
+      });
+      setCurrentIndex((prev) => {
+        const next = prev + 1;
+        currentIndexRef.current = next;
+        return next;
+      });
+
+      const nextPlayers = prevPlayers.map((player) =>
+        player.id === playerId
+          ? { ...player, score: newScore, backPegScore: player.score }
+          : player,
+      );
+      playersRef.current = nextPlayers;
+      setPlayers(nextPlayers);
+    },
+    [],
+  );
+
+  const undo = useCallback(() => {
+    if (lastActionRef.current === "remove" && removedEntriesRef.current.length > 0) {
+      const lastRemoved = removedEntriesRef.current.pop();
+      if (!lastRemoved) return;
+      const nextHistory = [...historyRef.current];
+      const insertIndex = Math.min(Math.max(lastRemoved.index, 0), nextHistory.length);
+      nextHistory.splice(insertIndex, 0, lastRemoved.entry);
+      historyRef.current = nextHistory;
+      setHistory(nextHistory);
+      currentIndexRef.current = lastRemoved.prevIndex;
+      setCurrentIndex(lastRemoved.prevIndex);
+      const nextPlayers = buildPlayersFromHistory(
+        nextHistory,
+        lastRemoved.prevIndex,
+        playersRef.current,
+      );
+      playersRef.current = nextPlayers;
+      setPlayers(nextPlayers);
+      setRemovedCount(removedEntriesRef.current.length);
+      lastActionRef.current = null;
+      return;
+    }
+    const index = currentIndexRef.current;
+    if (index < 0) return;
+    const entry = historyRef.current[index];
+    if (!entry) return;
+
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) =>
+        player.id === entry.playerId
+          ? {
+              ...player,
+              score: entry.oldScore,
+              backPegScore: entry.oldBackPegScore,
+            }
+          : player,
+      ),
+    );
+    const next = index - 1;
+    currentIndexRef.current = next;
+    setCurrentIndex(next);
   }, []);
 
-  const lanePercent = useCallback(
-    (laneIndex: number) =>
-      isCompactBoard
-        ? axisPercent(laneIndex, totalLaneRows - 1, LEFT_PADDING, RIGHT_PADDING, ROW_GAP)
-        : axisPercent(laneIndex, totalLaneRows - 1, TOP_PADDING, BOTTOM_PADDING, ROW_GAP),
-    [isCompactBoard, totalLaneRows],
-  );
+  const redo = useCallback(() => {
+    const nextIndex = currentIndexRef.current + 1;
+    const entry = historyRef.current[nextIndex];
+    if (!entry) return;
 
-  const scorePercent = useCallback(
-    (colIndex: number) =>
-      isCompactBoard
-        ? axisPercent(colIndex, LANE_COLUMNS - 1, TOP_PADDING, BOTTOM_PADDING)
-        : axisPercent(colIndex, LANE_COLUMNS - 1, LEFT_PADDING, RIGHT_PADDING),
-    [isCompactBoard],
-  );
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) =>
+        player.id === entry.playerId
+          ? {
+              ...player,
+              score: entry.newScore,
+              backPegScore: entry.oldScore,
+            }
+          : player,
+      ),
+    );
+    currentIndexRef.current = nextIndex;
+    setCurrentIndex(nextIndex);
+  }, []);
 
-  const laneRows = useMemo(() => {
-    const rows: { type: "start" | "segment" | "finish"; playerIndex?: number; segment?: number }[] = [];
-    for (let pIdx = 0; pIdx < playerStates.length; pIdx += 1) {
-      rows.push({ type: "start", playerIndex: pIdx });
+  const resetGame = useCallback(() => {
+    const nextState = createInitialState();
+    setPlayers(nextState.players);
+    setHistory(nextState.history);
+    setCurrentIndex(nextState.currentIndex);
+    setBoardSkin(nextState.boardSkin);
+    removedEntriesRef.current = [];
+    setRemovedCount(0);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
     }
-    for (let segment = 0; segment < SEGMENT_COUNT; segment += 1) {
-      for (let pIdx = 0; pIdx < playerStates.length; pIdx += 1) {
-        rows.push({ type: "segment", playerIndex: pIdx, segment });
-      }
+  }, []);
+
+  const handleNameChange = useCallback((playerId: PlayerId, name: string) => {
+    const fallbackName =
+      playerId === "p1" ? "Player One" : playerId === "p2" ? "Player Two" : "Player Three";
+    const cleaned = name.trim() || fallbackName;
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) =>
+        player.id === playerId ? { ...player, name: cleaned } : player,
+      ),
+    );
+    setHistory((prevHistory) =>
+      prevHistory.map((entry) =>
+        entry.playerId === playerId ? { ...entry, playerName: cleaned } : entry,
+      ),
+    );
+  }, []);
+
+  const formatTime = (timestamp: number) =>
+    new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(
+      timestamp,
+    );
+
+  const formatSecondsAgo = (timestamp: number) => {
+    const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    return `${seconds}s ago`;
+  };
+
+  const boardSkinClass =
+    boardSkin === "classic"
+      ? "bg-[linear-gradient(145deg,#4b2e1c,#1f1208)]"
+      : boardSkin === "bar"
+        ? "bg-[linear-gradient(145deg,#0b1220,#020617)]"
+        : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900";
+
+  const handleSave = useCallback(() => {
+    try {
+      const payload: StoredState = {
+        players,
+        history,
+        currentIndex,
+        boardSkin,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      setLastSavedAt(Date.now());
+    } catch {
+      // ignore
     }
-    rows.push({ type: "finish" });
-    return rows;
-  }, [playerStates.length]);
-
-  const presetLookup = useMemo(
-    () =>
-      players.reduce<Record<string, PlayerPreset>>((acc, player) => {
-        acc[player.id] = player.preset;
-        return acc;
-      }, {}),
-    [players],
-  );
-
-  const winningEntry = useMemo(
-    () => history.find((entry) => entry.after >= TOTAL_POINTS) ?? null,
-    [history],
-  );
-
-  const playerGridCols =
-    playerStates.length === 2 ? "sm:grid-cols-2 lg:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3";
-
-  const resetGame = useCallback(
-    (count?: PlayerCount) => {
-      const nextCount = count ?? playerCount;
-      const nextPlayers = buildPlayers(nextCount);
-      setPlayerCount(nextCount);
-      setPlayers(nextPlayers);
-      setHistory([]);
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        // ignore
-      }
-    },
-    [playerCount],
-  );
+  }, [boardSkin, currentIndex, history, players]);
 
   useEffect(() => {
     onRegisterReset(() => resetGame());
   }, [onRegisterReset, resetGame]);
 
   useEffect(() => {
-    if (hasHydrated.current) return;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as {
-          playerCount?: number;
-          players?: { id: string; name: string }[];
-          history?: HistoryEntry[];
-        } | null;
-        if (parsed && parsed.playerCount && [2, 3].includes(parsed.playerCount)) {
-          const basePlayers = buildPlayers(parsed.playerCount as PlayerCount);
-          const hydratedPlayers = basePlayers.map((p) => {
-            const storedPlayer = parsed.players?.find((sp) => sp.id === p.id);
-            return storedPlayer ? { ...p, name: storedPlayer.name || p.name } : p;
-          });
-          const allowedIds = new Set(hydratedPlayers.map((p) => p.id));
-          const hydratedHistory =
-            parsed.history?.filter(
-              (h) =>
-                h &&
-                typeof h.playerId === "string" &&
-                allowedIds.has(h.playerId) &&
-                typeof h.before === "number" &&
-                typeof h.after === "number" &&
-                typeof h.amount === "number",
-            ) ?? [];
-          setPlayerCount(parsed.playerCount as PlayerCount);
-          setPlayers(hydratedPlayers);
-          setHistory(hydratedHistory);
+        const parsed = JSON.parse(stored) as Partial<StoredState> | null;
+        if (parsed && parsed.players && parsed.history) {
+          setPlayers(parsed.players);
+          setHistory(parsed.history);
+          setCurrentIndex(typeof parsed.currentIndex === "number" ? parsed.currentIndex : -1);
+          if (parsed.boardSkin && BOARD_SKINS.includes(parsed.boardSkin)) {
+            setBoardSkin(parsed.boardSkin);
+          }
         }
       }
     } catch {
-      // ignore hydration errors
+      // ignore
     } finally {
       hasHydrated.current = true;
     }
@@ -272,492 +411,336 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
 
   useEffect(() => {
     if (!hasHydrated.current) return;
-    try {
-      const payload = JSON.stringify({
-        playerCount,
-        players: players.map(({ id, name }) => ({ id, name })),
-        history,
-      });
-      localStorage.setItem(STORAGE_KEY, payload);
-    } catch {
-      // ignore write errors
-    }
-  }, [history, playerCount, players]);
+    handleSave();
+  }, [handleSave]);
 
-  const handlePlayerCountChange = (count: PlayerCount) => {
-    if (count === playerCount) return;
-    resetGame(count);
+  useEffect(() => {
+    if (!draggingPlayer) return;
+    const handleUp = (event: PointerEvent) => {
+      setDraggingPlayer(null);
+      const target = players.find((player) => player.id === draggingPlayer);
+      if (!target || !boardRef.current) return;
+      const rect = boardRef.current.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      let bestScore = target.score;
+      let bestDist = Number.POSITIVE_INFINITY;
+      scorePositions.forEach((entry) => {
+        const px = (entry.pos.left / 100) * rect.width;
+        const py = (entry.pos.top / 100) * rect.height;
+        const dx = px - x;
+        const dy = py - y;
+        const dist = dx * dx + dy * dy;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestScore = entry.score;
+        }
+      });
+      const clamped = clampScore(bestScore);
+      if (clamped > target.score) {
+        addScore(target.id, clamped - target.score);
+      }
+    };
+
+    window.addEventListener("pointerup", handleUp, { once: true });
+    window.addEventListener("pointercancel", handleUp, { once: true });
+    return () => {
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+    };
+  }, [addScore, draggingPlayer, players, scorePositions]);
+
+  const handlePegPointerDown = (playerId: PlayerId) => (event: React.PointerEvent) => {
+    if (winner) return;
+    if (event.button !== 0) return;
+    setDraggingPlayer(playerId);
   };
 
-  const handleNameChange = (id: string, name: string) => {
-    const cleaned = name.trim() || players.find((p) => p.id === id)?.preset.defaultName || "Player";
-    setPlayers((prev) => prev.map((player) => (player.id === id ? { ...player, name: cleaned } : player)));
-    setHistory((prev) =>
-      prev.map((entry) => (entry.playerId === id ? { ...entry, playerName: cleaned } : entry)),
+  const handleRemoveHistory = (entryId: string) => {
+    const prevHistory = historyRef.current;
+    const index = prevHistory.findIndex((entry) => entry.id === entryId);
+    if (index === -1) return;
+    const entry = prevHistory[index];
+    const nextHistory = prevHistory.filter((_, idx) => idx !== index);
+    const prevIndex = currentIndexRef.current;
+    let nextIndex = prevIndex;
+    if (index <= prevIndex) {
+      nextIndex = prevIndex - 1;
+    }
+    removedEntriesRef.current.push({ entry, index, prevIndex });
+    lastActionRef.current = "remove";
+    setRemovedCount(removedEntriesRef.current.length);
+    historyRef.current = nextHistory;
+    setHistory(nextHistory);
+    currentIndexRef.current = nextIndex;
+    setCurrentIndex(nextIndex);
+    const nextPlayers = buildPlayersFromHistory(nextHistory, nextIndex, playersRef.current);
+    playersRef.current = nextPlayers;
+    setPlayers(nextPlayers);
+  };
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      boardRef.current?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }, []);
+
+  const renderDots = (player: PlayerState) => {
+    const frontPegPos = getScorePosition(player.score, -PEG_OFFSET);
+    const backPegPos = getScorePosition(player.backPegScore, PEG_OFFSET);
+    return (
+      <div className="relative h-[220px] sm:h-[240px]">
+        {boardSlots.map((score) => {
+          const canMove = score > player.score && score <= TOTAL_POINTS;
+          const isFinish = score === TOTAL_POINTS;
+          const pos = getScorePosition(score);
+          return (
+            <button
+              type="button"
+              key={`${player.id}-dot-${score}`}
+              className={`absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border ${
+                PLAYER_STYLES[player.id].border
+              } ${isFinish ? "bg-lime-400/40" : "bg-white/5"} ${
+                canMove ? "hover:bg-white/20" : "opacity-40"
+              }`}
+              style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
+              onClick={() => canMove && addScore(player.id, score - player.score)}
+              title={`${player.name} ${score}`}
+            />
+          );
+        })}
+        <div
+          className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full shadow ${PLAYER_STYLES[player.id].peg}`}
+          style={{ left: `${frontPegPos.left}%`, top: `${frontPegPos.top}%` }}
+        />
+        <button
+          type="button"
+          onPointerDown={handlePegPointerDown(player.id)}
+          className={`absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full shadow ${PLAYER_STYLES[player.id].peg} ${
+            winner ? "cursor-not-allowed" : "cursor-grab"
+          }`}
+          style={{ left: `${backPegPos.left}%`, top: `${backPegPos.top}%` }}
+          aria-label={`${player.name} trailing peg`}
+        />
+      </div>
     );
   };
 
-  const formatTime = (timestamp: number) =>
-    new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(timestamp);
-
-  const addScore = (playerId: string, amount: number) => {
-    if (winningEntry) return;
-    const player = playerStates.find((p) => p.id === playerId);
-    if (!player) return;
-    const before = player.current;
-    const after = Math.min(TOTAL_POINTS, before + amount);
-    const entry: HistoryEntry = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      playerId: player.id,
-      playerName: player.name,
-      amount,
-      before,
-      after,
-      timestamp: Date.now(),
-    };
-    setHistory((prev) => [...prev, entry]);
-  };
-
-  const undoLast = () => {
-    if (!history.length) return;
-    setHistory((prev) => prev.slice(0, -1));
-  };
-
-  const laneRowIndex = (playerIdx: number, score: number) => {
-    if (score <= 0) return playerIdx;
-    if (score >= TOTAL_POINTS) return totalLaneRows - 1;
-    const segment = Math.floor((score - 1) / SEGMENT_SIZE);
-    return playerStates.length + segment * playerStates.length + playerIdx;
-  };
-
-  const percentPosition = (score: number, playerIdx: number, peg: "A" | "B") => {
-    const lanePos = lanePercent(laneRowIndex(playerIdx, score));
-    if (score >= TOTAL_POINTS) {
-      return isCompactBoard ? { left: lanePos, top: 50 } : { left: 50, top: lanePos };
-    }
-    if (score <= 0) {
-      const pegIdx = peg === "A" ? 0 : 1;
-      const startAxis = 50 + (START_SLOT_OFFSETS[pegIdx] ?? 0);
-      return isCompactBoard ? { left: lanePos, top: startAxis } : { left: startAxis, top: lanePos };
-    }
-    const withinSegment = (score - 1) % SEGMENT_SIZE;
-    const scorePos = scorePercent(withinSegment);
-    return isCompactBoard ? { left: lanePos, top: scorePos } : { left: scorePos, top: lanePos };
-  };
-
-  const totalTurns = history.length;
-  const biggestSwing = history.length ? Math.max(...history.map((entry) => entry.amount)) : 0;
-  const totalPoints = history.reduce((sum, entry) => sum + entry.amount, 0);
-  const averageTurn = totalTurns ? (totalPoints / totalTurns).toFixed(1) : "0";
-
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-lg shadow-slate-950/50 backdrop-blur">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-white">Keep score on a board</h2>
-          <p className="text-sm text-slate-300">
-            Each player gets their own strip of +1 to +29 buttons. Tap to drop pegs down the classic
-            121 track—every move is logged so you can undo mistakes.
+          <h2 className="text-2xl font-semibold text-white">Online Cribbage Board</h2>
+          <p className="mt-2 text-sm text-slate-300">
+            Move pegs by dragging the trailing peg or tapping a score button. Every move is logged
+            for undo and redo.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white">
-            <button
-              onClick={() => handlePlayerCountChange(2)}
-              className={`px-3 py-1.5 transition ${playerCount === 2 ? "bg-white/20" : "hover:bg-white/10"}`}
-            >
-              2 players
-            </button>
-            <button
-              onClick={() => handlePlayerCountChange(3)}
-              className={`px-3 py-1.5 transition ${playerCount === 3 ? "bg-white/20" : "hover:bg-white/10"}`}
-            >
-              3 players
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => resetGame()}
-            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-lg shadow-slate-950/40 transition hover:-translate-y-[1px] hover:bg-white/20"
+            type="button"
+            onClick={resetGame}
+            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/20"
           >
-            Reset game
+            New game
+          </button>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/20"
+          >
+            Fullscreen
           </button>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr,0.8fr]">
-        <div className="space-y-4">
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 shadow-xl shadow-black/50">
-            <div className="absolute inset-0 opacity-30" aria-hidden>
-              <div className="absolute inset-10 rounded-[28px] border border-white/5 bg-gradient-to-br from-emerald-500/5 via-sky-500/5 to-indigo-500/5 blur-3xl" />
-              <div className="absolute inset-4 rounded-[32px] border border-white/5" />
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+        <span className="font-semibold text-emerald-300">Move:</span> Drag a back peg or tap a score button.
+        <br />
+        <span className="font-semibold text-emerald-300">Undo/Redo:</span> Use the buttons in the history panel.
+        <br />
+        <span className="font-semibold text-emerald-300">Edit Names:</span> Click a name to rename.
+        <br />
+        <span className="font-semibold text-emerald-300">Save:</span> Save a snapshot to this browser.
+      </div>
+
+      <div className="mt-5 space-y-5">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Board</p>
+              <h3 className="text-xl font-semibold text-white">121-hole track</h3>
             </div>
-            <div className="relative space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Board</p>
-                  <h3 className="text-2xl font-bold text-white">121-hole track</h3>
-                </div>
-                <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-slate-200">
-                  First to 121 wins
-                </div>
-              </div>
+            <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-slate-200">
+              First to 121 wins
+            </div>
+          </div>
 
-              <div
-                className={`relative mx-auto ${isCompactBoard ? "h-[800px]" : "h-[400px]"} w-full max-w-5xl overflow-hidden rounded-2xl border border-emerald-200/10 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 shadow-inner shadow-black/60`}
-              >
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage:
-                      "repeating-linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02) 1px, transparent 1px, transparent 16px)",
-                  }}
-                  aria-hidden
-                />
-                <div className="absolute inset-0">
-                  {laneRows.map((row, rowIdx) => {
-                    const lanePos = lanePercent(rowIdx);
-                    const laneStyle = isCompactBoard
-                      ? { left: `${lanePos}%`, top: 0, bottom: 0, transform: "translateX(-50%)" }
-                      : { top: `${lanePos}%`, left: 0, right: 0, transform: "translateY(-50%)" };
-                    const laneContainerClass = isCompactBoard ? "absolute inset-y-0" : "absolute inset-x-0";
-                    if (row.type === "finish") {
-                      return (
-                        <div
-                          key={`row-${rowIdx}`}
-                          className={laneContainerClass}
-                          style={laneStyle}
-                        >
-                          <div className="relative h-full w-full">
-                            <div className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full border border-lime-300/50 bg-lime-300/20">
-                              <div className="absolute left-1/2 top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border border-lime-300/70 bg-lime-300/40" />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    const player = row.playerIndex != null ? playerStates[row.playerIndex] : null;
-                    const preset = player?.preset;
-                    if (row.type === "start" && player) {
-                      return (
-                        <div
-                          key={`row-${rowIdx}`}
-                          className={laneContainerClass}
-                          style={laneStyle}
-                        >
-                          <div
-                            className={`relative mx-auto ${isCompactBoard ? "h-full w-12" : "h-12 w-full"} max-w-3xl`}
-                          >
-                            {START_SLOT_OFFSETS.map((_, pegIdx) => {
-                              const startAxis = 50 + (START_SLOT_OFFSETS[pegIdx] ?? 0);
-                              const style = isCompactBoard
-                                ? { top: `${startAxis}%`, left: "50%" }
-                                : { left: `${startAxis}%`, top: "50%" };
-                              return (
-                                <span
-                                  key={`start-${rowIdx}-${pegIdx}`}
-                                  className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow ${preset?.pegClass ?? "border-white/20 bg-white/10"}`}
-                                  style={{ ...style, opacity: 0.2 }}
-                                  aria-hidden
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    if (row.type === "segment" && player && row.segment !== undefined) {
-                      const dividers = Array.from(
-                        { length: LANE_COLUMNS / 5 - 1 },
-                        (_, groupIdx) => (groupIdx + 1) * 5,
-                      );
-                      const scoreRangeStart = row.segment * SEGMENT_SIZE + 1;
-                      const scoreRangeEnd = scoreRangeStart + SEGMENT_SIZE - 1;
-
-                      return (
-                        <div
-                          key={`row-${rowIdx}`}
-                          className={laneContainerClass}
-                          style={laneStyle}
-                        >
-                          <div
-                            className={`relative mx-auto ${isCompactBoard ? "h-full w-12" : "h-12 w-full"} max-w-5xl`}
-                          >
-                            {dividers.map((divider) => (
-                              <span
-                                key={`divider-${rowIdx}-${divider}`}
-                                className={`absolute ${isCompactBoard ? "left-1 right-1 h-px" : "top-1 bottom-1 w-px"} bg-white/15`}
-                                style={{
-                                  ...(isCompactBoard
-                                    ? { top: `${scorePercent(divider - 0.5)}%` }
-                                    : { left: `${scorePercent(divider - 0.5)}%` }),
-                                }}
-                                aria-hidden
-                              />
-                            ))}
-                            {Array.from({ length: LANE_COLUMNS }, (_, colIdx) => {
-                              const pos = scorePercent(colIdx);
-                              const scoreLabel = scoreRangeStart + colIdx;
-                              return (
-                                <span
-                                  key={`hole-${rowIdx}-${colIdx}`}
-                                  title={`${player.name} score ${scoreLabel}`}
-                                  className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border shadow-sm ${preset?.trailClass ?? "border-white/20 bg-white/10"}`}
-                                  style={{
-                                    ...(isCompactBoard
-                                      ? { top: `${pos}%`, left: "50%" }
-                                      : { left: `${pos}%`, top: "50%" }),
-                                    opacity: 0.2,
-                                  }}
-                                  aria-hidden
-                                />
-                              );
-                            })}
-                            {rowIdx % playerCount === 0 && (
-                              <div className="absolute left-0 top-0 text-[11px] uppercase tracking-wide text-slate-300">
-                                {scoreRangeStart}–{scoreRangeEnd}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-                <div
-                  className="opacity-0 absolute rounded-full bg-slate-800/80 px-2 py-1 text-[11px] font-semibold text-slate-200"
-                  style={{
-                    left: isCompactBoard ? `${Math.max(2, lanePercent(0) - 5)}%` : "50%",
-                    top: isCompactBoard ? "6%" : `${Math.max(2, lanePercent(0) - 5)}%`,
-                    transform: "translateX(-50%)",
-                  }}
-                >
-                  Start
-                </div>
-                <div
-                  className="absolute rounded-full px-2 py-1 text-[11px] font-semibold text-lime-100"
-                  style={{
-                    left: "50%",
-                    bottom: "6%",
-                    transform: "translateX(-50%)",
-                  }}
-                >
-                  Finish
-                </div>
-
-                {playerStates.map((player, idx) => {
-                  const pegAPos = percentPosition(player.pegA, idx, "A");
-                  const pegBPos = percentPosition(player.pegB, idx, "B");
-                  return (
-                    <div key={player.id}>
-                      <div
-                        className="absolute z-20"
-                        style={{
-                          left: `${pegAPos.left}%`,
-                          top: `${pegAPos.top}%`,
-                          transition: "left 0.35s ease, top 0.35s ease",
-                        }}
-                      >
-                        <div
-                          className={`h-4 w-4 ${player.preset.pegClass}`}
-                          style={{ transform: "translate(-50%, -50%)" }}
-                          title={`${player.name} peg A`}
-                        />
-                      </div>
-                      <div
-                        className="absolute z-10"
-                        style={{
-                          left: `${pegBPos.left}%`,
-                          top: `${pegBPos.top}%`,
-                          transition: "left 0.35s ease, top 0.35s ease",
-                        }}
-                      >
-                        <div
-                          className={`h-4 w-4 ${player.preset.trailClass}`}
-                          style={{ transform: "translate(-50%, -50%)" }}
-                          title={`${player.name} peg B`}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="space-y-3">
-                <div className={`grid gap-3 ${playerGridCols}`}>
-                  {playerStates.map((player) => (
-                    <div
-                      key={player.id}
-                      className={`h-full rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner shadow-black/30 ring-1 ${player.preset.ringClass}`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`h-3 w-3 rounded-full border ${player.preset.pegClass}`}
-                            aria-hidden
-                          />
-                          <input
-                            value={player.name}
-                            onChange={(e) => handleNameChange(player.id, e.target.value)}
-                            className="bg-transparent text-sm font-semibold text-white outline-none"
-                          />
-                        </div>
-                        <div className="text-right text-xs text-slate-200">
-                          <div className="font-semibold text-white">
-                            {player.current} / {TOTAL_POINTS}
-                          </div>
-                          <div className="text-[11px] text-slate-300">
-                            Last peg at {player.previous}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-3 grid grid-cols-5 gap-2">
-                        {SCORE_CHOICES.map((value) => (
-                          <button
-                            key={`${player.id}-${value}`}
-                            onClick={() => addScore(player.id, value)}
-                            disabled={!!winningEntry}
-                            className="rounded-lg border border-white/15 bg-white/10 px-2 py-2 text-center text-sm font-semibold text-white shadow-sm shadow-black/40 transition hover:-translate-y-[1px] hover:bg-white/20 hover:shadow-black/60 disabled:cursor-not-allowed disabled:opacity-50"
-                            title={`Add +${value} to ${player.name}`}
-                          >
-                            +{value}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-200 shadow-inner shadow-black/30">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-lime-300" />
-                    <span>
-                      {winningEntry
-                        ? `${winningEntry.playerName} sealed it with +${winningEntry.amount}.`
-                        : "Tap a button under a player to add that many points."}
-                    </span>
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.6fr,0.9fr]">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3 lg:order-1">
+              {players.map((player) => (
+                <div key={`bar-${player.id}`} className="mb-3 last:mb-0">
+                  <div className="flex items-center justify-between text-xs text-slate-300">
+                    <span className={PLAYER_STYLES[player.id].text}>{player.name}</span>
+                    <span>{player.score} pts</span>
                   </div>
-                  <button
-                    onClick={undoLast}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm shadow-black/50 transition hover:bg-white/20"
-                  >
-                    Undo last
-                  </button>
+                  <div className="relative mt-1 h-2 rounded-full bg-white/10">
+                    {[0, 61, 91, 121].map((mark) => (
+                      <span
+                        key={`${player.id}-mark-${mark}`}
+                        className="absolute top-0 h-full w-px bg-white/15"
+                        style={{ left: `${(mark / TOTAL_POINTS) * 100}%` }}
+                        aria-hidden
+                      />
+                    ))}
+                    <div
+                      className={`absolute left-0 top-0 h-full rounded-full ${PLAYER_STYLES[player.id].peg}`}
+                      style={{ width: `${(player.score / TOTAL_POINTS) * 100}%` }}
+                    />
+                  </div>
                 </div>
+              ))}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner lg:order-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-white">History</h4>
+                <span className="text-xs text-slate-300">{history.length} moves</span>
               </div>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={currentIndex < 0 && removedCount === 0}
+                  className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={redo}
+                  disabled={currentIndex >= history.length - 1}
+                  className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+                >
+                  Redo
+                </button>
+              </div>
+              {history.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-300">No moves yet.</p>
+              ) : (
+                <ul className="mt-3 max-h-[280px] space-y-2 overflow-y-auto pr-1">
+                  {[...history].reverse().map((entry, idx) => {
+                    const actualIndex = history.length - 1 - idx;
+                    const isUndone = actualIndex > currentIndex;
+                    const playerStyle = PLAYER_STYLES[entry.playerId];
+                    return (
+                      <li
+                        key={entry.id}
+                        className={`flex items-center justify-between rounded-lg border border-white/10 ${playerStyle.historyBg} px-3 py-2 text-sm text-slate-100 ${
+                          isUndone ? "opacity-50" : ""
+                        }`}
+                      >
+                        <div>
+                          <div className="font-semibold">{entry.playerName}</div>
+                          <div className="text-xs text-slate-300">
+                            +{entry.scoreToAdd} • {entry.oldScore} → {entry.newScore} •{" "}
+                            {formatSecondsAgo(entry.timestamp)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-300">
+                            {entry.newScore >= TOTAL_POINTS ? "🏆" : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveHistory(entry.id)}
+                            className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs text-white hover:bg-white/20"
+                            aria-label="Remove history entry"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           </div>
         </div>
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg shadow-black/50">
-            <div className="flex items-center justify-between">
-              <h4 className="text-lg font-semibold text-white">Score history</h4>
-              <span className="text-xs text-slate-300">{history.length} records</span>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {players.map((player) => (
+            <div
+              key={`${player.id}-controls`}
+              className={`rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner ${PLAYER_STYLES[player.id].border}`}
+            >
+              <div className="flex items-center justify-between">
+                <input
+                  value={player.name}
+                  onChange={(event) => handleNameChange(player.id, event.target.value)}
+                  className="w-full bg-transparent text-lg font-semibold text-white outline-none"
+                />
+                <div className="ml-3 text-sm text-slate-300">{player.score} pts</div>
+              </div>
+              <div className="mt-3 grid grid-cols-6 gap-2">
+                {SCORE_BUTTONS.map((value) => (
+                  <button
+                    type="button"
+                    key={`${player.id}-score-${value}`}
+                    onClick={() => addScore(player.id, value)}
+                    disabled={!!winner}
+                    className={`rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold text-white ${
+                      PLAYER_STYLES[player.id].button
+                    } disabled:cursor-not-allowed disabled:opacity-50`}
+                  >
+                    +{value}
+                  </button>
+                ))}
+              </div>
             </div>
-            {history.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-300">
-                Every tap is logged here. Add a score to see the trail.
-              </p>
-            ) : (
-              <ul className="mt-3 max-h-[380px] space-y-2 overflow-y-auto pr-1">
-                {[...history].reverse().map((entry) => {
-                  const preset = presetLookup[entry.playerId];
-                  return (
-                    <li
-                      key={entry.id}
-                      className={`flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 ring-1 ring-inset ${preset?.ringClass ?? "ring-white/5"}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`h-2.5 w-2.5 rounded-full border ${preset?.pegClass ?? "border-white/20 bg-white/20"}`}
-                          aria-hidden
-                        />
-                        <div>
-                          <div className={`font-semibold ${preset?.textClass ?? ""}`}>
-                            {entry.playerName}
-                          </div>
-                          <div className="text-xs text-slate-300">
-                            {entry.before} → {entry.after}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${preset?.badgeClass ?? "border-white/10 bg-white/10 text-white"}`}
-                        >
-                          +{entry.amount}
-                        </span>
-                        <div className="text-xs font-semibold text-lime-200">
-                          {entry.after >= TOTAL_POINTS ? "🏆" : ""}
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+          ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner">
+            <h4 className="text-lg font-semibold text-white">Save for later</h4>
+            <p className="mt-2 text-sm text-slate-300">
+              Save the current board to your browser. This auto-saves after every move.
+            </p>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="mt-3 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/20"
+            >
+              Save game
+            </button>
+            <div className="mt-2 text-xs text-slate-300">
+              {lastSavedAt ? `Last saved at ${formatTime(lastSavedAt)}.` : "No saves yet."}
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/20 via-sky-500/10 to-slate-900 p-4 shadow-lg shadow-black/50">
-            <div className="flex items-center justify-between">
-              <h4 className="text-lg font-semibold text-white">
-                {winningEntry ? "Game over" : "Game stats"}
-              </h4>
-              <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[11px] uppercase tracking-wide text-slate-200">
-                {totalTurns} turns
-              </span>
-            </div>
-            {winningEntry ? (
-              <div className="mt-3 space-y-2">
-                <p className="text-sm text-lime-100">
-                  Congratulations, {winningEntry.playerName}! You hit 121 with a +{winningEntry.amount} move.
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-100">
-                  <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-2">
-                    <div className="text-[11px] uppercase tracking-wide text-slate-300">Last step</div>
-                    <div className="text-base font-semibold text-white">
-                      {winningEntry.before} → {winningEntry.after}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-2">
-                    <div className="text-[11px] uppercase tracking-wide text-slate-300">Timeline</div>
-                    <div className="text-base font-semibold text-white">{totalTurns} logged moves</div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-slate-200">
-                Track every peg leap. First to 121 wins—no need to count holes, the board will do it.
-              </p>
-            )}
-            <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-slate-100">
-              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-300">Biggest jump</div>
-                <div className="text-base font-semibold text-white">+{biggestSwing || 0}</div>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-300">Average turn</div>
-                <div className="text-base font-semibold text-white">+{averageTurn}</div>
-              </div>
-              {playerStates.map((player) => (
-                <div
-                  key={`stat-${player.id}`}
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner">
+            <h4 className="text-lg font-semibold text-white">Board style</h4>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-white">
+              {BOARD_SKINS.map((skin) => (
+                <label
+                  key={skin}
+                  className={`flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 ${
+                    boardSkin === skin ? "bg-white/20" : "bg-white/10"
+                  }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full border ${player.preset.pegClass}`} />
-                    <div className="text-[11px] uppercase tracking-wide text-slate-300">
-                      {player.name}
-                    </div>
-                  </div>
-                  <div className="mt-1 text-base font-semibold text-white">
-                    {player.current} pts • {player.moves || 0} moves
-                  </div>
-                  <div className="text-xs text-slate-300">
-                    Longest leap +{player.maxJump || 0} • Total +{player.totalAdded}
-                  </div>
-                </div>
+                  <input
+                    type="radio"
+                    name="board-skin"
+                    value={skin}
+                    checked={boardSkin === skin}
+                    onChange={() => setBoardSkin(skin)}
+                    className="accent-emerald-300"
+                  />
+                  {skin}
+                </label>
               ))}
             </div>
           </div>
