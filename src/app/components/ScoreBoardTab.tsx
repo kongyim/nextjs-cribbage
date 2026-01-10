@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type PlayerId = "p1" | "p2" | "p3";
 
@@ -34,6 +35,14 @@ type StoredState = {
   currentIndex: number;
   boardSkin: BoardSkin;
   playerCount?: number;
+  showHistory?: boolean;
+  removedEntries?: { entry: HistoryEntry; index: number; prevIndex: number }[];
+};
+
+type Toast = {
+  id: string;
+  message: string;
+  bgClass: string;
 };
 
 const TOTAL_POINTS = 121;
@@ -71,14 +80,14 @@ const PLAYER_STYLES: Record<
 };
 
 const createInitialPlayers = (): PlayerState[] => [
-  { id: "p1", name: "Player One", score: 0, backPegScore: -1 },
-  { id: "p2", name: "Player Two", score: 0, backPegScore: -1 },
+  { id: "p1", name: "Player 1", score: 0, backPegScore: -1 },
+  { id: "p2", name: "Player 2", score: 0, backPegScore: -1 },
 ];
 
 const createPlayersForCount = (count: number): PlayerState[] => {
   const base = createInitialPlayers();
   if (count === 3) {
-    return [...base, { id: "p3", name: "Player Three", score: 0, backPegScore: -1 }];
+    return [...base, { id: "p3", name: "Player 3", score: 0, backPegScore: -1 }];
   }
   return base;
 };
@@ -147,6 +156,10 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const lastActionRef = useRef<"add" | "remove" | null>(null);
   const removedEntriesRef = useRef<{ entry: HistoryEntry; index: number; prevIndex: number }[]>([]);
   const [removedCount, setRemovedCount] = useState(0);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastTimersRef = useRef<Map<string, number>>(new Map());
+  const [isMounted, setIsMounted] = useState(false);
+  const skipSaveRef = useRef(false);
 
   const boardSlots = useMemo(
     () => [-1, ...Array.from({ length: TOTAL_POINTS + 1 }, (_, i) => i)],
@@ -170,6 +183,27 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   useEffect(() => {
     playersRef.current = players;
   }, [players]);
+
+  useEffect(() => {
+    return () => {
+      toastTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      toastTimersRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const enqueueToast = useCallback((message: string, bgClass: string) => {
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setToasts((prev) => [...prev, { id, message, bgClass }]);
+    const timer = window.setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+      toastTimersRef.current.delete(id);
+    }, 2400);
+    toastTimersRef.current.set(id, timer);
+  }, []);
 
   const buildPlayersFromHistory = useCallback(
     (entries: HistoryEntry[], index: number, basePlayers: PlayerState[]) => {
@@ -208,22 +242,23 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       newScore = TOTAL_POINTS - 1;
     }
 
-    const entry: HistoryEntry = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      playerId,
-      playerName: target.name,
-      scoreToAdd: points,
-      oldScore: target.score,
-      oldBackPegScore: target.backPegScore,
-      newScore,
-      timestamp: Date.now(),
-    };
+      const entry: HistoryEntry = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        playerId,
+        playerName: target.name,
+        scoreToAdd: points,
+        oldScore: target.score,
+        oldBackPegScore: target.backPegScore,
+        newScore,
+        timestamp: Date.now(),
+      };
 
-    lastActionRef.current = "add";
-    setHistory((prevHistory) => {
-      const trimmed = prevHistory.slice(0, currentIndexRef.current + 1);
-      return [...trimmed, entry];
-    });
+      lastActionRef.current = "add";
+      enqueueToast(`${target.name} +${points}`, PLAYER_STYLES[target.id].historyBg);
+      setHistory((prevHistory) => {
+        const trimmed = prevHistory.slice(0, currentIndexRef.current + 1);
+        return [...trimmed, entry];
+      });
     setCurrentIndex((prev) => {
       const next = prev + 1;
       currentIndexRef.current = next;
@@ -309,6 +344,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       setHistory(nextState.history);
       setCurrentIndex(nextState.currentIndex);
       setBoardSkin(nextState.boardSkin);
+      setShowHistory(true);
       removedEntriesRef.current = [];
       setRemovedCount(0);
       try {
@@ -322,7 +358,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
 
   const resolvePlayerName = (playerId: PlayerId, name: string) => {
     const fallbackName =
-      playerId === "p1" ? "Player One" : playerId === "p2" ? "Player Two" : "Player Three";
+      playerId === "p1" ? "Player 1" : playerId === "p2" ? "Player 2" : "Player 3";
     const cleaned = name.trim();
     return cleaned.length ? cleaned : fallbackName;
   };
@@ -373,13 +409,15 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
         currentIndex,
         boardSkin,
         playerCount,
+        showHistory,
+        removedEntries: removedEntriesRef.current,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       setLastSavedAt(Date.now());
     } catch {
       // ignore
     }
-  }, [boardSkin, currentIndex, history, playerCount, players]);
+  }, [boardSkin, currentIndex, history, playerCount, players, showHistory]);
 
   useEffect(() => {
     onRegisterReset(() => resetGame());
@@ -390,20 +428,30 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<StoredState> | null;
-        if (parsed && parsed.players && parsed.history) {
+        if (parsed) {
+          skipSaveRef.current = true;
           const count = parsed.playerCount === 3 ? 3 : 2;
           setPlayerCount(count);
           const initialPlayers = createPlayersForCount(count);
-          const parsedIds = new Set(parsed.players.map((player) => player.id));
-          const nextPlayers = initialPlayers.map((player) => {
-            const storedPlayer = parsed.players?.find((entry) => entry.id === player.id);
-            return storedPlayer ? { ...player, name: storedPlayer.name } : player;
-          });
+          const nextPlayers = parsed.players
+            ? initialPlayers.map((player) => {
+                const storedPlayer = parsed.players?.find((entry) => entry.id === player.id);
+                return storedPlayer ? { ...player, name: storedPlayer.name } : player;
+              })
+            : initialPlayers;
+          const allowedIds = new Set(nextPlayers.map((player) => player.id));
           const filteredHistory =
-            parsed.history?.filter((entry) => parsedIds.has(entry.playerId)) ?? [];
+            parsed.history?.filter((entry) => allowedIds.has(entry.playerId)) ?? [];
           setPlayers(nextPlayers);
           setHistory(filteredHistory);
           setCurrentIndex(typeof parsed.currentIndex === "number" ? parsed.currentIndex : -1);
+          if (typeof parsed.showHistory === "boolean") {
+            setShowHistory(parsed.showHistory);
+          }
+          if (parsed.removedEntries && Array.isArray(parsed.removedEntries)) {
+            removedEntriesRef.current = parsed.removedEntries;
+            setRemovedCount(parsed.removedEntries.length);
+          }
           if (parsed.boardSkin && BOARD_SKINS.includes(parsed.boardSkin)) {
             setBoardSkin(parsed.boardSkin);
           }
@@ -418,6 +466,10 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
 
   useEffect(() => {
     if (!hasHydrated.current) return;
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return;
+    }
     handleSave();
   }, [handleSave]);
 
@@ -739,6 +791,21 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
           ) : null}
         </div>
       </div>
+      {isMounted
+        ? createPortal(
+            <div className="fixed bottom-6 right-6 z-50 flex w-64 flex-col gap-2">
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  className={`rounded-xl border border-white/15 ${toast.bgClass} px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 backdrop-blur`}
+                >
+                  {toast.message}
+                </div>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
