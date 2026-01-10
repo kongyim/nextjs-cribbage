@@ -204,6 +204,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     [boardSlots],
   );
 
+  const activePlayerCount = playerCount === 3 ? 3 : 2;
   const winner = players.find((player) => player.score >= TOTAL_POINTS) ?? null;
 
   useEffect(() => {
@@ -372,7 +373,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
 
   const resetGame = useCallback(
     (nextCount?: number) => {
-      const count = nextCount ?? playerCount;
+      const count = nextCount ?? activePlayerCount;
       const nextState = createInitialState(count);
       setPlayerCount(count);
       setPlayers(nextState.players);
@@ -388,7 +389,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
         // ignore
       }
     },
-    [playerCount],
+    [activePlayerCount],
   );
 
   const resolvePlayerName = (playerId: PlayerId, name: string) => {
@@ -695,14 +696,14 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                     <button
                       type="button"
                       onClick={() => resetGame(2)}
-                      className={`px-3 py-1.5 transition ${playerCount === 2 ? "bg-white/20" : "hover:bg-white/10"}`}
+                      className={`px-3 py-1.5 transition ${activePlayerCount === 2 ? "bg-white/20" : "hover:bg-white/10"}`}
                     >
                       2 players
                     </button>
                     <button
                       type="button"
                       onClick={() => resetGame(3)}
-                      className={`px-3 py-1.5 transition ${playerCount === 3 ? "bg-white/20" : "hover:bg-white/10"}`}
+                      className={`px-3 py-1.5 transition ${activePlayerCount === 3 ? "bg-white/20" : "hover:bg-white/10"}`}
                     >
                       3 players
                     </button>
@@ -739,7 +740,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
             </div>
 
             <div
-              className={`grid gap-4 ${playerCount === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}`}
+              className={`grid gap-4 ${activePlayerCount === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}`}
             >
               {players.map((player) => (
                 <div
@@ -754,32 +755,6 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                         onBlur={(event) => handleNameBlur(player.id, event.target.value)}
                         className="w-full bg-transparent text-lg font-semibold text-white outline-none"
                       />
-                      <div className="flex items-center gap-1">
-                        {COLOR_OPTIONS.map((color) => {
-                          const isTaken = players.some(
-                            (other) => other.id !== player.id && other.color === color,
-                          );
-                          return (
-                            <button
-                              key={`${player.id}-${color}`}
-                              type="button"
-                              onClick={() => handleColorChange(player.id, color)}
-                              disabled={isTaken}
-                              className={`h-4 w-4 rounded-full border ${
-                                COLOR_STYLES[color].border
-                              } ${COLOR_STYLES[color].peg} ${
-                                player.color === color
-                                  ? "ring-2 ring-white/70"
-                                  : isTaken
-                                    ? "opacity-20"
-                                    : "opacity-70 hover:opacity-100"
-                              }`}
-                              aria-label={`Set ${player.name} color to ${color}`}
-                              title={color}
-                            />
-                          );
-                        })}
-                      </div>
                     </div>
                     <div className="text-sm text-slate-300 whitespace-nowrap">
                       {player.score} pts
@@ -799,6 +774,34 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                         +{value}
                       </button>
                     ))}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      {COLOR_OPTIONS.map((color) => {
+                        const isTaken = players.some(
+                          (other) => other.id !== player.id && other.color === color,
+                        );
+                        return (
+                          <button
+                            key={`${player.id}-${color}`}
+                            type="button"
+                            onClick={() => handleColorChange(player.id, color)}
+                            disabled={isTaken}
+                            className={`h-4 w-4 rounded-full border ${
+                              COLOR_STYLES[color].border
+                            } ${COLOR_STYLES[color].peg} ${
+                              player.color === color
+                                ? "ring-2 ring-white/70"
+                                : isTaken
+                                  ? "opacity-20"
+                                  : "opacity-70 hover:opacity-100"
+                            }`}
+                            aria-label={`Set ${player.name} color to ${color}`}
+                            title={color}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               ))}
