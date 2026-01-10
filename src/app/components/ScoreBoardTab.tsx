@@ -496,7 +496,6 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
         removedEntries: removedEntriesRef.current,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      setLastSavedAt(Date.now());
     } catch {
       // ignore
     }
@@ -678,7 +677,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-2xl font-semibold text-white">Online Cribbage Board</h2>
           <p className="mt-2 text-sm text-slate-300">
@@ -689,7 +688,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={resetGame}
+            onClick={() => resetGame()}
             className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/20"
           >
             New game
@@ -712,8 +711,8 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       </div>
 
       <div className="mt-5 space-y-5">
-        <div className="flex gap-4">
-          <div className="flex flex-col grow gap-4">
+        <div className="flex gap-2">
+          <div className="flex flex-col grow gap-2">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -746,7 +745,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-4">
+              <div className="mt-4 flex gap-2">
                 <div className="rounded-xl border border-white/10 bg-black/30 p-3 lg:order-1 w-full">
                   {players.map((player) => (
                     <div key={`bar-${player.id}`} className="mb-3 last:mb-0">
@@ -775,7 +774,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
             </div>
 
             <div
-              className={`grid gap-4 ${activePlayerCount === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}`}
+              className={`grid gap-2 ${activePlayerCount === 2 ? "grid-cols-2" : "grid-cols-3"}`}
             >
               {players.map((player) => (
                 <div
