@@ -33,6 +33,7 @@ type StoredState = {
   history: HistoryEntry[];
   currentIndex: number;
   boardSkin: BoardSkin;
+  playerCount?: number;
 };
 
 const TOTAL_POINTS = 121;
@@ -96,14 +97,22 @@ const PLAYER_STYLES: Record<
 const createInitialPlayers = (): PlayerState[] => [
   { id: "p1", name: "Player One", score: 0, backPegScore: -1 },
   { id: "p2", name: "Player Two", score: 0, backPegScore: -1 },
-  { id: "p3", name: "Player Three", score: 0, backPegScore: -1 },
 ];
 
-const createInitialState = (): StoredState => ({
-  players: createInitialPlayers(),
+const createPlayersForCount = (count: number): PlayerState[] => {
+  const base = createInitialPlayers();
+  if (count === 3) {
+    return [...base, { id: "p3", name: "Player Three", score: 0, backPegScore: -1 }];
+  }
+  return base;
+};
+
+const createInitialState = (count = 2): StoredState => ({
+  players: createPlayersForCount(count),
   history: [],
   currentIndex: -1,
   boardSkin: "clear",
+  playerCount: count,
 });
 
 const clampScore = (score: number) => Math.min(Math.max(score, -1), TOTAL_POINTS);
@@ -147,6 +156,7 @@ const getScorePosition = (score: number, offset = 0) => {
 };
 
 export function ScoreBoardTab({ onRegisterReset }: Props) {
+  const [playerCount, setPlayerCount] = useState(2);
   const [players, setPlayers] = useState<PlayerState[]>(() => createInitialPlayers());
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
@@ -321,20 +331,25 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     setCurrentIndex(nextIndex);
   }, []);
 
-  const resetGame = useCallback(() => {
-    const nextState = createInitialState();
-    setPlayers(nextState.players);
-    setHistory(nextState.history);
-    setCurrentIndex(nextState.currentIndex);
-    setBoardSkin(nextState.boardSkin);
-    removedEntriesRef.current = [];
-    setRemovedCount(0);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
-  }, []);
+  const resetGame = useCallback(
+    (nextCount?: number) => {
+      const count = nextCount ?? playerCount;
+      const nextState = createInitialState(count);
+      setPlayerCount(count);
+      setPlayers(nextState.players);
+      setHistory(nextState.history);
+      setCurrentIndex(nextState.currentIndex);
+      setBoardSkin(nextState.boardSkin);
+      removedEntriesRef.current = [];
+      setRemovedCount(0);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    },
+    [playerCount],
+  );
 
   const handleNameChange = useCallback((playerId: PlayerId, name: string) => {
     const fallbackName =
@@ -376,13 +391,14 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
         history,
         currentIndex,
         boardSkin,
+        playerCount,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       setLastSavedAt(Date.now());
     } catch {
       // ignore
     }
-  }, [boardSkin, currentIndex, history, players]);
+  }, [boardSkin, currentIndex, history, playerCount, players]);
 
   useEffect(() => {
     onRegisterReset(() => resetGame());
@@ -394,8 +410,18 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<StoredState> | null;
         if (parsed && parsed.players && parsed.history) {
-          setPlayers(parsed.players);
-          setHistory(parsed.history);
+          const count = parsed.playerCount === 3 ? 3 : 2;
+          setPlayerCount(count);
+          const initialPlayers = createPlayersForCount(count);
+          const parsedIds = new Set(parsed.players.map((player) => player.id));
+          const nextPlayers = initialPlayers.map((player) => {
+            const storedPlayer = parsed.players?.find((entry) => entry.id === player.id);
+            return storedPlayer ? { ...player, name: storedPlayer.name } : player;
+          });
+          const filteredHistory =
+            parsed.history?.filter((entry) => parsedIds.has(entry.playerId)) ?? [];
+          setPlayers(nextPlayers);
+          setHistory(filteredHistory);
           setCurrentIndex(typeof parsed.currentIndex === "number" ? parsed.currentIndex : -1);
           if (parsed.boardSkin && BOARD_SKINS.includes(parsed.boardSkin)) {
             setBoardSkin(parsed.boardSkin);
@@ -573,8 +599,26 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Board</p>
               <h3 className="text-xl font-semibold text-white">121-hole track</h3>
             </div>
-            <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-slate-200">
-              First to 121 wins
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-slate-200">
+                First to 121 wins
+              </div>
+              <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white">
+                <button
+                  type="button"
+                  onClick={() => resetGame(2)}
+                  className={`px-3 py-1.5 transition ${playerCount === 2 ? "bg-white/20" : "hover:bg-white/10"}`}
+                >
+                  2 players
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resetGame(3)}
+                  className={`px-3 py-1.5 transition ${playerCount === 3 ? "bg-white/20" : "hover:bg-white/10"}`}
+                >
+                  3 players
+                </button>
+              </div>
             </div>
           </div>
 
@@ -604,7 +648,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               ))}
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner lg:order-2">
-              <div className="mt-3 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={undo}
