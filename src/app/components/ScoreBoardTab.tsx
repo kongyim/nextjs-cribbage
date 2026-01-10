@@ -137,6 +137,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [boardSkin, setBoardSkin] = useState<BoardSkin>("clear");
+  const [showHistory, setShowHistory] = useState(true);
   const [draggingPlayer, setDraggingPlayer] = useState<PlayerId | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const currentIndexRef = useRef(currentIndex);
@@ -319,16 +320,32 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     [playerCount],
   );
 
-  const handleNameChange = useCallback((playerId: PlayerId, name: string) => {
+  const resolvePlayerName = (playerId: PlayerId, name: string) => {
     const fallbackName =
       playerId === "p1" ? "Player One" : playerId === "p2" ? "Player Two" : "Player Three";
-    const cleaned = name.trim() || fallbackName;
+    const cleaned = name.trim();
+    return cleaned.length ? cleaned : fallbackName;
+  };
+
+  const handleNameChange = useCallback((playerId: PlayerId, name: string) => {
     setPlayers((prevPlayers) =>
-      prevPlayers.map((player) => (player.id === playerId ? { ...player, name: cleaned } : player)),
+      prevPlayers.map((player) => (player.id === playerId ? { ...player, name } : player)),
     );
     setHistory((prevHistory) =>
       prevHistory.map((entry) =>
-        entry.playerId === playerId ? { ...entry, playerName: cleaned } : entry,
+        entry.playerId === playerId ? { ...entry, playerName: name } : entry,
+      ),
+    );
+  }, []);
+
+  const handleNameBlur = useCallback((playerId: PlayerId, name: string) => {
+    const resolved = resolvePlayerName(playerId, name);
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) => (player.id === playerId ? { ...player, name: resolved } : player)),
+    );
+    setHistory((prevHistory) =>
+      prevHistory.map((entry) =>
+        entry.playerId === playerId ? { ...entry, playerName: resolved } : entry,
       ),
     );
   }, []);
@@ -562,6 +579,13 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Board</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory((prev) => !prev)}
+                    className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/20"
+                  >
+                    {showHistory ? "Hide history" : "Show history"}
+                  </button>
                   <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white">
                     <button
                       type="button"
@@ -618,11 +642,12 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   className={`rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner ${PLAYER_STYLES[player.id].border}`}
                 >
                   <div className="flex items-center justify-between">
-                    <input
-                      value={player.name}
-                      onChange={(event) => handleNameChange(player.id, event.target.value)}
-                      className="w-full bg-transparent text-lg font-semibold text-white outline-none"
-                    />
+                  <input
+                    value={player.name}
+                    onChange={(event) => handleNameChange(player.id, event.target.value)}
+                    onBlur={(event) => handleNameBlur(player.id, event.target.value)}
+                    className="w-full bg-transparent text-lg font-semibold text-white outline-none"
+                  />
                     <div className="ml-3 text-sm text-slate-300 whitespace-nowrap">
                       {player.score} pts
                     </div>
@@ -647,69 +672,71 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner lg:order-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={undo}
-                disabled={currentIndex < 0 && removedCount === 0}
-                className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
-              >
-                Undo
-              </button>
-              <button
-                type="button"
-                onClick={redo}
-                disabled={currentIndex >= history.length - 1}
-                className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
-              >
-                Redo
-              </button>
-              <span className="text-xs text-slate-300 whitespace-nowrap">
-                {history.length} moves
-              </span>
-            </div>
-            {history.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-300">No moves yet.</p>
-            ) : (
-              <ul className="mt-3 max-h-full space-y-2 overflow-y-auto pr-1">
-                {[...history].reverse().map((entry, idx) => {
-                  const actualIndex = history.length - 1 - idx;
-                  const isUndone = actualIndex > currentIndex;
-                  const playerStyle = PLAYER_STYLES[entry.playerId];
-                  return (
-                    <li
-                      key={entry.id}
-                      className={`flex items-center justify-between rounded-lg border border-white/10 ${playerStyle.historyBg} px-3 py-2 text-sm text-slate-100 ${
-                        isUndone ? "opacity-50" : ""
-                      }`}
-                    >
-                      <div>
-                        <div className="font-semibold">{entry.playerName}</div>
-                        <div className="text-xs text-slate-300 whitespace-nowrap">
-                          +{entry.scoreToAdd} • {entry.oldScore} → {entry.newScore} •{" "}
-                          {formatSecondsAgo(entry.timestamp)}
+          {showHistory ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner lg:order-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={currentIndex < 0 && removedCount === 0}
+                  className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={redo}
+                  disabled={currentIndex >= history.length - 1}
+                  className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+                >
+                  Redo
+                </button>
+                <span className="text-xs text-slate-300 whitespace-nowrap">
+                  {history.length} moves
+                </span>
+              </div>
+              {history.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-300">No moves yet.</p>
+              ) : (
+                <ul className="mt-3 max-h-full space-y-2 overflow-y-auto pr-1">
+                  {[...history].reverse().map((entry, idx) => {
+                    const actualIndex = history.length - 1 - idx;
+                    const isUndone = actualIndex > currentIndex;
+                    const playerStyle = PLAYER_STYLES[entry.playerId];
+                    return (
+                      <li
+                        key={entry.id}
+                        className={`flex items-center justify-between rounded-lg border border-white/10 ${playerStyle.historyBg} px-3 py-2 text-sm text-slate-100 ${
+                          isUndone ? "opacity-50" : ""
+                        }`}
+                      >
+                        <div>
+                          <div className="font-semibold">{entry.playerName}</div>
+                          <div className="text-xs text-slate-300 whitespace-nowrap">
+                            +{entry.scoreToAdd} • {entry.oldScore} → {entry.newScore} •{" "}
+                            {formatSecondsAgo(entry.timestamp)}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-300">
-                          {entry.newScore >= TOTAL_POINTS ? "🏆" : ""}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveHistory(entry.id)}
-                          className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs text-white hover:bg-white/20"
-                          aria-label="Remove history entry"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-300">
+                            {entry.newScore >= TOTAL_POINTS ? "🏆" : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveHistory(entry.id)}
+                            className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs text-white hover:bg-white/20"
+                            aria-label="Remove history entry"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
