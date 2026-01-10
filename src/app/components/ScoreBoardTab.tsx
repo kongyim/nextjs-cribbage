@@ -39,31 +39,7 @@ type StoredState = {
 const TOTAL_POINTS = 121;
 const STORAGE_KEY = "cribbage-board-state";
 const SCORE_BUTTONS = [
-  1,
-  2,
-  3,
-  4,
-  5,
-  6,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  16,
-  17,
-  18,
-  20,
-  21,
-  22,
-  23,
-  24,
-  28,
-  29,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 28, 29,
 ];
 const BOARD_SKINS: BoardSkin[] = ["clear", "classic", "bar"];
 
@@ -161,7 +137,6 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [boardSkin, setBoardSkin] = useState<BoardSkin>("clear");
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [draggingPlayer, setDraggingPlayer] = useState<PlayerId | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const currentIndexRef = useRef(currentIndex);
@@ -169,9 +144,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const historyRef = useRef(history);
   const playersRef = useRef(players);
   const lastActionRef = useRef<"add" | "remove" | null>(null);
-  const removedEntriesRef = useRef<{ entry: HistoryEntry; index: number; prevIndex: number }[]>(
-    [],
-  );
+  const removedEntriesRef = useRef<{ entry: HistoryEntry; index: number; prevIndex: number }[]>([]);
   const [removedCount, setRemovedCount] = useState(0);
 
   const boardSlots = useMemo(
@@ -216,57 +189,52 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     [],
   );
 
-  const addScore = useCallback(
-    (playerId: PlayerId, points: number) => {
-      if (points <= 0) return;
+  const addScore = useCallback((playerId: PlayerId, points: number) => {
+    if (points <= 0) return;
 
-      const prevPlayers = playersRef.current;
-      const winnerNow = prevPlayers.find((player) => player.score >= TOTAL_POINTS);
-      if (winnerNow) return;
-      const target = prevPlayers.find((player) => player.id === playerId);
-      if (!target) return;
+    const prevPlayers = playersRef.current;
+    const winnerNow = prevPlayers.find((player) => player.score >= TOTAL_POINTS);
+    if (winnerNow) return;
+    const target = prevPlayers.find((player) => player.id === playerId);
+    if (!target) return;
 
-      const rawScore = target.score + points;
-      let newScore = Math.min(TOTAL_POINTS, rawScore);
-      const otherHasWon = prevPlayers.some(
-        (player) => player.id !== playerId && player.score === TOTAL_POINTS,
-      );
-      if (newScore === TOTAL_POINTS && otherHasWon) {
-        newScore = TOTAL_POINTS - 1;
-      }
+    const rawScore = target.score + points;
+    let newScore = Math.min(TOTAL_POINTS, rawScore);
+    const otherHasWon = prevPlayers.some(
+      (player) => player.id !== playerId && player.score === TOTAL_POINTS,
+    );
+    if (newScore === TOTAL_POINTS && otherHasWon) {
+      newScore = TOTAL_POINTS - 1;
+    }
 
-      const entry: HistoryEntry = {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        playerId,
-        playerName: target.name,
-        scoreToAdd: points,
-        oldScore: target.score,
-        oldBackPegScore: target.backPegScore,
-        newScore,
-        timestamp: Date.now(),
-      };
+    const entry: HistoryEntry = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      playerId,
+      playerName: target.name,
+      scoreToAdd: points,
+      oldScore: target.score,
+      oldBackPegScore: target.backPegScore,
+      newScore,
+      timestamp: Date.now(),
+    };
 
-      lastActionRef.current = "add";
-      setHistory((prevHistory) => {
-        const trimmed = prevHistory.slice(0, currentIndexRef.current + 1);
-        return [...trimmed, entry];
-      });
-      setCurrentIndex((prev) => {
-        const next = prev + 1;
-        currentIndexRef.current = next;
-        return next;
-      });
+    lastActionRef.current = "add";
+    setHistory((prevHistory) => {
+      const trimmed = prevHistory.slice(0, currentIndexRef.current + 1);
+      return [...trimmed, entry];
+    });
+    setCurrentIndex((prev) => {
+      const next = prev + 1;
+      currentIndexRef.current = next;
+      return next;
+    });
 
-      const nextPlayers = prevPlayers.map((player) =>
-        player.id === playerId
-          ? { ...player, score: newScore, backPegScore: player.score }
-          : player,
-      );
-      playersRef.current = nextPlayers;
-      setPlayers(nextPlayers);
-    },
-    [],
-  );
+    const nextPlayers = prevPlayers.map((player) =>
+      player.id === playerId ? { ...player, score: newScore, backPegScore: player.score } : player,
+    );
+    playersRef.current = nextPlayers;
+    setPlayers(nextPlayers);
+  }, []);
 
   const undo = useCallback(() => {
     if (lastActionRef.current === "remove" && removedEntriesRef.current.length > 0) {
@@ -356,9 +324,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       playerId === "p1" ? "Player One" : playerId === "p2" ? "Player Two" : "Player Three";
     const cleaned = name.trim() || fallbackName;
     setPlayers((prevPlayers) =>
-      prevPlayers.map((player) =>
-        player.id === playerId ? { ...player, name: cleaned } : player,
-      ),
+      prevPlayers.map((player) => (player.id === playerId ? { ...player, name: cleaned } : player)),
     );
     setHistory((prevHistory) =>
       prevHistory.map((entry) =>
@@ -368,9 +334,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   }, []);
 
   const formatTime = (timestamp: number) =>
-    new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(
-      timestamp,
-    );
+    new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(timestamp);
 
   const formatSecondsAgo = (timestamp: number) => {
     const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
@@ -583,207 +547,168 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       </div>
 
       <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-        <span className="font-semibold text-emerald-300">Move:</span> Drag a back peg or tap a score button.
-        <br />
-        <span className="font-semibold text-emerald-300">Undo/Redo:</span> Use the buttons in the history panel.
+        <span className="font-semibold text-emerald-300">Undo/Redo:</span> Use the buttons in the
+        history panel.
         <br />
         <span className="font-semibold text-emerald-300">Edit Names:</span> Click a name to rename.
-        <br />
-        <span className="font-semibold text-emerald-300">Save:</span> Save a snapshot to this browser.
       </div>
 
       <div className="mt-5 space-y-5">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Board</p>
-              <h3 className="text-xl font-semibold text-white">121-hole track</h3>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-slate-200">
-                First to 121 wins
-              </div>
-              <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white">
-                <button
-                  type="button"
-                  onClick={() => resetGame(2)}
-                  className={`px-3 py-1.5 transition ${playerCount === 2 ? "bg-white/20" : "hover:bg-white/10"}`}
-                >
-                  2 players
-                </button>
-                <button
-                  type="button"
-                  onClick={() => resetGame(3)}
-                  className={`px-3 py-1.5 transition ${playerCount === 3 ? "bg-white/20" : "hover:bg-white/10"}`}
-                >
-                  3 players
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 flex gap-4">
-            <div className="rounded-xl border border-white/10 bg-black/30 p-3 lg:order-1 w-full">
-              {players.map((player) => (
-                <div key={`bar-${player.id}`} className="mb-3 last:mb-0">
-                  <div className="flex items-center justify-between text-xs text-slate-300">
-                    <span className={PLAYER_STYLES[player.id].text}>{player.name}</span>
-                    <span>{player.score} pts</span>
+        <div className="flex gap-4">
+          <div className="flex flex-col grow gap-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-inner">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Board</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex overflow-hidden rounded-full border border-white/15 bg-white/10 text-xs font-semibold text-white">
+                    <button
+                      type="button"
+                      onClick={() => resetGame(2)}
+                      className={`px-3 py-1.5 transition ${playerCount === 2 ? "bg-white/20" : "hover:bg-white/10"}`}
+                    >
+                      2 players
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resetGame(3)}
+                      className={`px-3 py-1.5 transition ${playerCount === 3 ? "bg-white/20" : "hover:bg-white/10"}`}
+                    >
+                      3 players
+                    </button>
                   </div>
-                  <div className="relative mt-1 h-2 rounded-full bg-white/10">
-                    {[0, 61, 91, 121].map((mark) => (
-                      <span
-                        key={`${player.id}-mark-${mark}`}
-                        className="absolute top-0 h-full w-px bg-white/15"
-                        style={{ left: `${(mark / TOTAL_POINTS) * 100}%` }}
-                        aria-hidden
-                      />
-                    ))}
-                    <div
-                      className={`absolute left-0 top-0 h-full rounded-full ${PLAYER_STYLES[player.id].peg}`}
-                      style={{ width: `${(player.score / TOTAL_POINTS) * 100}%` }}
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-4">
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3 lg:order-1 w-full">
+                  {players.map((player) => (
+                    <div key={`bar-${player.id}`} className="mb-3 last:mb-0">
+                      <div className="flex items-center justify-between text-xs text-slate-300">
+                        <span className={PLAYER_STYLES[player.id].text}>{player.name}</span>
+                        <span>{player.score} pts</span>
+                      </div>
+                      <div className="relative mt-1 h-2 rounded-full bg-white/10">
+                        {[0, 61, 91, 121].map((mark) => (
+                          <span
+                            key={`${player.id}-mark-${mark}`}
+                            className="absolute top-0 h-full w-px bg-white/15"
+                            style={{ left: `${(mark / TOTAL_POINTS) * 100}%` }}
+                            aria-hidden
+                          />
+                        ))}
+                        <div
+                          className={`absolute left-0 top-0 h-full rounded-full ${PLAYER_STYLES[player.id].peg}`}
+                          style={{ width: `${(player.score / TOTAL_POINTS) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`grid gap-4 ${playerCount === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}`}
+            >
+              {players.map((player) => (
+                <div
+                  key={`${player.id}-controls`}
+                  className={`rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner ${PLAYER_STYLES[player.id].border}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <input
+                      value={player.name}
+                      onChange={(event) => handleNameChange(player.id, event.target.value)}
+                      className="w-full bg-transparent text-lg font-semibold text-white outline-none"
                     />
+                    <div className="ml-3 text-sm text-slate-300 whitespace-nowrap">
+                      {player.score} pts
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-6 gap-2">
+                    {SCORE_BUTTONS.map((value) => (
+                      <button
+                        type="button"
+                        key={`${player.id}-score-${value}`}
+                        onClick={() => addScore(player.id, value)}
+                        disabled={!!winner}
+                        className={`rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold text-white ${
+                          PLAYER_STYLES[player.id].button
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        +{value}
+                      </button>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner lg:order-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={undo}
-                  disabled={currentIndex < 0 && removedCount === 0}
-                  className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
-                >
-                  Undo
-                </button>
-                <button
-                  type="button"
-                  onClick={redo}
-                  disabled={currentIndex >= history.length - 1}
-                  className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
-                >
-                  Redo
-                </button>
-                <span className="text-xs text-slate-300 whitespace-nowrap">{history.length} moves</span>
-              </div>
-              {history.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-300">No moves yet.</p>
-              ) : (
-                <ul className="mt-3 max-h-[280px] space-y-2 overflow-y-auto pr-1">
-                  {[...history].reverse().map((entry, idx) => {
-                    const actualIndex = history.length - 1 - idx;
-                    const isUndone = actualIndex > currentIndex;
-                    const playerStyle = PLAYER_STYLES[entry.playerId];
-                    return (
-                      <li
-                        key={entry.id}
-                        className={`flex items-center justify-between rounded-lg border border-white/10 ${playerStyle.historyBg} px-3 py-2 text-sm text-slate-100 ${
-                          isUndone ? "opacity-50" : ""
-                        }`}
-                      >
-                        <div>
-                          <div className="font-semibold">{entry.playerName}</div>
-                          <div className="text-xs text-slate-300 whitespace-nowrap">
-                            +{entry.scoreToAdd} • {entry.oldScore} → {entry.newScore} •{" "}
-                            {formatSecondsAgo(entry.timestamp)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-300">
-                            {entry.newScore >= TOTAL_POINTS ? "🏆" : ""}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveHistory(entry.id)}
-                            className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs text-white hover:bg-white/20"
-                            aria-label="Remove history entry"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          {players.map((player) => (
-            <div
-              key={`${player.id}-controls`}
-              className={`rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner ${PLAYER_STYLES[player.id].border}`}
-            >
-              <div className="flex items-center justify-between">
-                <input
-                  value={player.name}
-                  onChange={(event) => handleNameChange(player.id, event.target.value)}
-                  className="w-full bg-transparent text-lg font-semibold text-white outline-none"
-                />
-                <div className="ml-3 text-sm text-slate-300 whitespace-nowrap">{player.score} pts</div>
-              </div>
-              <div className="mt-3 grid grid-cols-6 gap-2">
-                {SCORE_BUTTONS.map((value) => (
-                  <button
-                    type="button"
-                    key={`${player.id}-score-${value}`}
-                    onClick={() => addScore(player.id, value)}
-                    disabled={!!winner}
-                    className={`rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold text-white ${
-                      PLAYER_STYLES[player.id].button
-                    } disabled:cursor-not-allowed disabled:opacity-50`}
-                  >
-                    +{value}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner">
-            <h4 className="text-lg font-semibold text-white">Save for later</h4>
-            <p className="mt-2 text-sm text-slate-300">
-              Save the current board to your browser. This auto-saves after every move.
-            </p>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="mt-3 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-white/20"
-            >
-              Save game
-            </button>
-            <div className="mt-2 text-xs text-slate-300">
-              {lastSavedAt ? `Last saved at ${formatTime(lastSavedAt)}.` : "No saves yet."}
-            </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner">
-            <h4 className="text-lg font-semibold text-white">Board style</h4>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide text-white">
-              {BOARD_SKINS.map((skin) => (
-                <label
-                  key={skin}
-                  className={`flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5 ${
-                    boardSkin === skin ? "bg-white/20" : "bg-white/10"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="board-skin"
-                    value={skin}
-                    checked={boardSkin === skin}
-                    onChange={() => setBoardSkin(skin)}
-                    className="accent-emerald-300"
-                  />
-                  {skin}
-                </label>
-              ))}
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner lg:order-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={undo}
+                disabled={currentIndex < 0 && removedCount === 0}
+                className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                onClick={redo}
+                disabled={currentIndex >= history.length - 1}
+                className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+              >
+                Redo
+              </button>
+              <span className="text-xs text-slate-300 whitespace-nowrap">
+                {history.length} moves
+              </span>
             </div>
+            {history.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-300">No moves yet.</p>
+            ) : (
+              <ul className="mt-3 max-h-full space-y-2 overflow-y-auto pr-1">
+                {[...history].reverse().map((entry, idx) => {
+                  const actualIndex = history.length - 1 - idx;
+                  const isUndone = actualIndex > currentIndex;
+                  const playerStyle = PLAYER_STYLES[entry.playerId];
+                  return (
+                    <li
+                      key={entry.id}
+                      className={`flex items-center justify-between rounded-lg border border-white/10 ${playerStyle.historyBg} px-3 py-2 text-sm text-slate-100 ${
+                        isUndone ? "opacity-50" : ""
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold">{entry.playerName}</div>
+                        <div className="text-xs text-slate-300 whitespace-nowrap">
+                          +{entry.scoreToAdd} • {entry.oldScore} → {entry.newScore} •{" "}
+                          {formatSecondsAgo(entry.timestamp)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-300">
+                          {entry.newScore >= TOTAL_POINTS ? "🏆" : ""}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHistory(entry.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xs text-white hover:bg-white/20"
+                          aria-label="Remove history entry"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
       </div>
