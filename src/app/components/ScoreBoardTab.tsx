@@ -194,6 +194,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   const toastTimersRef = useRef<Map<string, number>>(new Map());
   const [isMounted, setIsMounted] = useState(false);
   const skipSaveRef = useRef(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const boardSlots = useMemo(
     () => [-1, ...Array.from({ length: TOTAL_POINTS + 1 }, (_, i) => i)],
@@ -228,6 +229,41 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const requestWakeLock = async () => {
+      if (!("wakeLock" in navigator)) return;
+      try {
+        const sentinel = await navigator.wakeLock.request("screen");
+        if (!isActive) {
+          await sentinel.release();
+          return;
+        }
+        wakeLockRef.current = sentinel;
+        sentinel.addEventListener("release", () => {
+          if (wakeLockRef.current === sentinel) {
+            wakeLockRef.current = null;
+          }
+        });
+      } catch {
+        // ignore wake lock errors
+      }
+    };
+    requestWakeLock();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && !wakeLockRef.current) {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      isActive = false;
+      document.removeEventListener("visibilitychange", handleVisibility);
+      wakeLockRef.current?.release();
+      wakeLockRef.current = null;
+    };
   }, []);
 
   const enqueueToast = useCallback((message: string, bgClass: string) => {
