@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 type PlayerId = "p1" | "p2" | "p3";
+type PlayerColor = "red" | "green" | "blue" | "yellow" | "pink" | "purple";
 
 type PlayerState = {
   id: PlayerId;
   name: string;
+  color: PlayerColor;
   score: number;
   backPegScore: number;
 };
@@ -52,42 +54,74 @@ const SCORE_BUTTONS = [
 ];
 const BOARD_SKINS: BoardSkin[] = ["clear", "classic", "bar"];
 
-const PLAYER_STYLES: Record<
-  PlayerId,
+const COLOR_OPTIONS: PlayerColor[] = ["red", "green", "blue", "yellow", "pink", "purple"];
+
+const COLOR_STYLES: Record<
+  PlayerColor,
   { peg: string; text: string; border: string; button: string; historyBg: string }
 > = {
-  p1: {
+  red: {
+    peg: "bg-red-400",
+    text: "text-red-200",
+    border: "border-red-400/40",
+    button: "bg-red-500/20 hover:bg-red-500/30",
+    historyBg: "bg-red-500/10",
+  },
+  green: {
     peg: "bg-emerald-400",
     text: "text-emerald-200",
     border: "border-emerald-400/40",
     button: "bg-emerald-500/20 hover:bg-emerald-500/30",
     historyBg: "bg-emerald-500/10",
   },
-  p2: {
+  blue: {
     peg: "bg-sky-400",
     text: "text-sky-200",
     border: "border-sky-400/40",
     button: "bg-sky-500/20 hover:bg-sky-500/30",
     historyBg: "bg-sky-500/10",
   },
-  p3: {
+  yellow: {
     peg: "bg-amber-400",
     text: "text-amber-200",
     border: "border-amber-400/40",
     button: "bg-amber-500/20 hover:bg-amber-500/30",
     historyBg: "bg-amber-500/10",
   },
+  pink: {
+    peg: "bg-pink-400",
+    text: "text-pink-200",
+    border: "border-pink-400/40",
+    button: "bg-pink-500/20 hover:bg-pink-500/30",
+    historyBg: "bg-pink-500/10",
+  },
+  purple: {
+    peg: "bg-violet-400",
+    text: "text-violet-200",
+    border: "border-violet-400/40",
+    button: "bg-violet-500/20 hover:bg-violet-500/30",
+    historyBg: "bg-violet-500/10",
+  },
+};
+
+const defaultPlayerColor = (playerId: PlayerId): PlayerColor => {
+  if (playerId === "p1") return "red";
+  if (playerId === "p2") return "green";
+  return "blue";
 };
 
 const createInitialPlayers = (): PlayerState[] => [
-  { id: "p1", name: "Player 1", score: 0, backPegScore: -1 },
-  { id: "p2", name: "Player 2", score: 0, backPegScore: -1 },
+  { id: "p1", name: "Player 1", color: defaultPlayerColor("p1"), score: 0, backPegScore: -1 },
+  { id: "p2", name: "Player 2", color: defaultPlayerColor("p2"), score: 0, backPegScore: -1 },
 ];
 
 const createPlayersForCount = (count: number): PlayerState[] => {
   const base = createInitialPlayers();
   if (count === 3) {
-    return [...base, { id: "p3", name: "Player 3", score: 0, backPegScore: -1 }];
+    return [
+      ...base,
+      { id: "p3", name: "Player 3", color: defaultPlayerColor("p3"), score: 0, backPegScore: -1 },
+    ];
   }
   return base;
 };
@@ -254,7 +288,8 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
       };
 
       lastActionRef.current = "add";
-      enqueueToast(`${target.name} +${points}`, PLAYER_STYLES[target.id].historyBg);
+      const colorStyle = COLOR_STYLES[target.color];
+      enqueueToast(`${target.name} +${points}`, colorStyle.historyBg);
       setHistory((prevHistory) => {
         const trimmed = prevHistory.slice(0, currentIndexRef.current + 1);
         return [...trimmed, entry];
@@ -363,6 +398,18 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
     return cleaned.length ? cleaned : fallbackName;
   };
 
+  const handleColorChange = useCallback((playerId: PlayerId, color: PlayerColor) => {
+    setPlayers((prevPlayers) => {
+      const isTaken = prevPlayers.some(
+        (player) => player.id !== playerId && player.color === color,
+      );
+      if (isTaken) return prevPlayers;
+      return prevPlayers.map((player) =>
+        player.id === playerId ? { ...player, color } : player,
+      );
+    });
+  }, []);
+
   const handleNameChange = useCallback((playerId: PlayerId, name: string) => {
     setPlayers((prevPlayers) =>
       prevPlayers.map((player) => (player.id === playerId ? { ...player, name } : player)),
@@ -436,7 +483,13 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
           const nextPlayers = parsed.players
             ? initialPlayers.map((player) => {
                 const storedPlayer = parsed.players?.find((entry) => entry.id === player.id);
-                return storedPlayer ? { ...player, name: storedPlayer.name } : player;
+                return storedPlayer
+                  ? {
+                      ...player,
+                      name: storedPlayer.name ?? player.name,
+                      color: (storedPlayer as PlayerState).color ?? player.color,
+                    }
+                  : player;
               })
             : initialPlayers;
           const allowedIds = new Set(nextPlayers.map((player) => player.id));
@@ -560,7 +613,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               type="button"
               key={`${player.id}-dot-${score}`}
               className={`absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border ${
-                PLAYER_STYLES[player.id].border
+                COLOR_STYLES[player.color].border
               } ${isFinish ? "bg-lime-400/40" : "bg-white/5"} ${
                 canMove ? "hover:bg-white/20" : "opacity-40"
               }`}
@@ -571,13 +624,13 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
           );
         })}
         <div
-          className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full shadow ${PLAYER_STYLES[player.id].peg}`}
+          className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full shadow ${COLOR_STYLES[player.color].peg}`}
           style={{ left: `${frontPegPos.left}%`, top: `${frontPegPos.top}%` }}
         />
         <button
           type="button"
           onPointerDown={handlePegPointerDown(player.id)}
-          className={`absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full shadow ${PLAYER_STYLES[player.id].peg} ${
+          className={`absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full shadow ${COLOR_STYLES[player.color].peg} ${
             winner ? "cursor-not-allowed" : "cursor-grab"
           }`}
           style={{ left: `${backPegPos.left}%`, top: `${backPegPos.top}%` }}
@@ -662,7 +715,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   {players.map((player) => (
                     <div key={`bar-${player.id}`} className="mb-3 last:mb-0">
                       <div className="flex items-center justify-between text-xs text-slate-300">
-                        <span className={PLAYER_STYLES[player.id].text}>{player.name}</span>
+                    <span className={COLOR_STYLES[player.color].text}>{player.name}</span>
                         <span>{player.score} pts</span>
                       </div>
                       <div className="relative mt-1 h-2 rounded-full bg-white/10">
@@ -675,7 +728,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                           />
                         ))}
                         <div
-                          className={`absolute left-0 top-0 h-full rounded-full ${PLAYER_STYLES[player.id].peg}`}
+                      className={`absolute left-0 top-0 h-full rounded-full ${COLOR_STYLES[player.color].peg}`}
                           style={{ width: `${(player.score / TOTAL_POINTS) * 100}%` }}
                         />
                       </div>
@@ -691,16 +744,44 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
               {players.map((player) => (
                 <div
                   key={`${player.id}-controls`}
-                  className={`rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner ${PLAYER_STYLES[player.id].border}`}
+              className={`rounded-xl border border-white/10 bg-white/5 p-4 shadow-inner ${COLOR_STYLES[player.color].border}`}
                 >
-                  <div className="flex items-center justify-between">
-                  <input
-                    value={player.name}
-                    onChange={(event) => handleNameChange(player.id, event.target.value)}
-                    onBlur={(event) => handleNameBlur(player.id, event.target.value)}
-                    className="w-full bg-transparent text-lg font-semibold text-white outline-none"
-                  />
-                    <div className="ml-3 text-sm text-slate-300 whitespace-nowrap">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={player.name}
+                        onChange={(event) => handleNameChange(player.id, event.target.value)}
+                        onBlur={(event) => handleNameBlur(player.id, event.target.value)}
+                        className="w-full bg-transparent text-lg font-semibold text-white outline-none"
+                      />
+                      <div className="flex items-center gap-1">
+                        {COLOR_OPTIONS.map((color) => {
+                          const isTaken = players.some(
+                            (other) => other.id !== player.id && other.color === color,
+                          );
+                          return (
+                            <button
+                              key={`${player.id}-${color}`}
+                              type="button"
+                              onClick={() => handleColorChange(player.id, color)}
+                              disabled={isTaken}
+                              className={`h-4 w-4 rounded-full border ${
+                                COLOR_STYLES[color].border
+                              } ${COLOR_STYLES[color].peg} ${
+                                player.color === color
+                                  ? "ring-2 ring-white/70"
+                                  : isTaken
+                                    ? "opacity-20"
+                                    : "opacity-70 hover:opacity-100"
+                              }`}
+                              aria-label={`Set ${player.name} color to ${color}`}
+                              title={color}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="text-sm text-slate-300 whitespace-nowrap">
                       {player.score} pts
                     </div>
                   </div>
@@ -711,9 +792,9 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                         key={`${player.id}-score-${value}`}
                         onClick={() => addScore(player.id, value)}
                         disabled={!!winner}
-                        className={`rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold text-white ${
-                          PLAYER_STYLES[player.id].button
-                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      className={`rounded-lg border border-white/10 px-2 py-2 text-xs font-semibold text-white ${
+                        COLOR_STYLES[player.color].button
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
                       >
                         +{value}
                       </button>
@@ -754,7 +835,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
                   {[...history].reverse().map((entry, idx) => {
                     const actualIndex = history.length - 1 - idx;
                     const isUndone = actualIndex > currentIndex;
-                    const playerStyle = PLAYER_STYLES[entry.playerId];
+                    const playerStyle = COLOR_STYLES[players.find((player) => player.id === entry.playerId)?.color ?? "green"];
                     return (
                       <li
                         key={entry.id}
