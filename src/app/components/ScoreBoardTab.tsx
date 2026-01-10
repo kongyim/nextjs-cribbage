@@ -241,6 +241,30 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   }, [isCompact]);
 
   useEffect(() => {
+    if (!isCompact) return;
+    const nudgeScroll = () => {
+      const y = window.scrollY;
+      const maxY = Math.max(0, document.body.scrollHeight - window.innerHeight);
+      const nextY = Math.min(maxY, y + 1);
+      window.scrollTo(0, nextY);
+      window.requestAnimationFrame(() => {
+        window.scrollTo(0, y);
+      });
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      window.setTimeout(nudgeScroll, 50);
+    };
+    const handleFocus = () => window.setTimeout(nudgeScroll, 50);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [isCompact]);
+
+  useEffect(() => {
     let isActive = true;
     const requestWakeLock = async () => {
       if (!("wakeLock" in navigator)) return;
@@ -681,7 +705,7 @@ export function ScoreBoardTab({ onRegisterReset }: Props) {
   };
 
   return (
-    <div className={isFull ? "p-2" : "p-0"}>
+    <div className={isFull ? "p-2 pb-24" : "p-0"}>
       {!isFull ? (
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
